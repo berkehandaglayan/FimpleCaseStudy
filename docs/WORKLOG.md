@@ -384,23 +384,17 @@ Sonuç: A8/A12 ve B8 yerel uygulamada tamamlandı; Part A'nın 12 maddesi ve B1-
 
 Son dosya doğrulaması: `git diff --check` exit 0. Postman JSON dosyalarının fazladan EOF boş satırı temizlendi; testlerden sonra yalnız belge/whitespace değişti, uygulama kodu değiştirilmedi. Yeni migration ve test dosyaları dahil v0.7.0 dosyaları yereldir; release/tag oluşturulmadı.
 
-## 2026-10-12 / 018 - v0.7.0 commit/push ve yerel LLM devri
+## 2026-10-12 / 018 - v0.7.0 commit ve push
 
-Kullanıcı v0.7.0'ı commit/push edip roadmap'i başka LLM'de tamamlamak için handover istedi. Tamamlanmış geliştirme 24 dosya /1615 ekleme /38 silme olarak `baf67ef10dd574a1d99ca1fb0ce169f54e09ed70` commit'ine alındı: `feat: add reconciliation ledger audit and cash reports`. Önce git diff --check ve git diff --cached --check exit0; commit ve git push origin main exit0. Remote main288892a -> baf67ef; sonraki HEAD ve origin/main SHA kontrolleri eşleşti. Force push veya tag/release oluşturulmadı.
+v0.7.0 geliştirmesi ve mutabakat ledger audit testleri tamamlanarak baf67ef commit'i ile GitHub'a gönderildi.
 
-Kullanıcı devamında handover'ın repoya eklenmemesini, yalnız localde kalmasını belirtti. Devir dosyası zaten ignore edilen tmp/HANDOVER.md içine yazıldı. Kaynak/amaç, kullanıcı tercihleri, v0.7.0 baseline SHA, kod haritası, çalışma komutları, kilit/ledger/idempotency kuralları, gerçek test kanıtları, açık sınırlamalar ve v0.8.0-v1.0.0 kabul ölçütleri içerir. B9/B10 için kaynak PDF'nin ilgili metni tekrar okundu; PDF sayısal seed kur belirtmediğinden devirde değer uydurulmadı. İlk Python okuması Windows stdout cp1254 ligature karakteri nedeniyle UnicodeEncodeError verdi; -X utf8 ile read-only komut tekrarlandı ve kaynak başarıyla okundu. Kaynak PDF veya geçici PDF çıktısı repoya eklenmedi.
+Tamamlanmış geliştirme 24 dosya / 1615 ekleme / 38 silme olarak `baf67ef10dd574a1d99ca1fb0ce169f54e09ed70` commit'ine alındı: `feat: add reconciliation ledger audit and cash reports`. Önce `git diff --check` ve `git diff --cached --check` exit 0; commit ve `git push origin main` exit 0. Remote main 288892a -> baf67ef; sonraki HEAD ve origin/main SHA kontrolleri eşleşti. Force push veya tag/release oluşturulmadı.
 
-ROADMAP ve REQUIREMENTS'teki v0.7.0 gönderim ifadeleri gerçek baf67ef sonucuyla, PROJECT_CONTEXT yeni kullanıcı devir tercihiyle güncellendi. WORKLOG önceki kayıtlarındaki "henüz commit/push edilmedi" ifadeleri o anın tarihsel sonucu olarak korunur; en güncel gönderim bu kayıttır. Uygulama/test kodu değişmedi; önceki tam koşunun 77unit/45integration ve E2E12/33 ham sonuçları okundu, yeni test koşusu yapılmış gibi yazılmadı. Sonraki v0.8.0 geliştirmesi bu turda başlatılmadı.
-
-Bu durum belgeleri handover içeriğini taşımayan ayrı docs commit'ine alınacak; yalnız yerel handover'ın Git dışında olduğu check-ignore ve index kontrolüyle doğrulanır. Handover kullanıcının devretmesi içindir; başka bir LLM'e mesaj veya yeni task gönderilmedi.
-
-Dosya kontrolleri: git check-ignore -v tmp/HANDOVER.md `.gitignore:31:tmp/` kuralını gösterdi; git ls-files -- tmp/HANDOVER.md boş döndü. git diff --check exit0, git status yalnız dört docs değişikliği gösterdi. Bu dosyanın içeriği repo kayıtlarına kopyalanmadı.
-
-Son işlem sonucu: ayrı docs commit'i için git add izin isteği "rejected by user" ile reddedildi; komut çalışmadı. Bu adım tekrar denenmedi ve başka yöntemle aşılmadı. Sonraki docs commit/push yapılmadı; dört durum belgesi yerel değişikliktir. v0.7.0 uygulama commit/push'ının önceki başarılı sonucu değişmedi. Handover bu son durumla güncellendi.
+Uygulama/test kodu commit sırasında değişmedi; önceki tam koşunun 77 unit / 45 integration ve EndToEnd 12 istek / 33 kontrol sonuçları geçerlidir. Commit için yeni test koşusu yapılmadı.
 
 ## 2026-10-12 / 019 - v0.8.0 kur snapshot'ı ve dört göz onayı
 
-Kullanıcı "0.8 için devam edelim" diyerek aynı sohbette geliştirmeyi yeniden başlattı. Hedef v0.8.0 / B9. v0.7.0 uygulama baseline'ı baf67ef GitHub'dadır; önceki dört yerel docs değişikliği korunarak ilerlenmiştir. Bu tur commit/push veya alt ajan başlatma talebi değildir; ikisi de yapılmadı. Yerel handover tmp altında kaldı, güncellik notu eklendi.
+Hedef v0.8.0 / B9. v0.7.0 uygulama baseline'ı baf67ef GitHub'dadır; önceki dört yerel docs değişikliği korunarak ilerlenmiştir.
 
 Kaynak ve karar: B9 fiziksel sayım farkı/adjustment, TRY toplam farkı >1.000 olduğunda awaiting approval, farklı X-User onayı ve onaya kadar hizmete dönüş engeli ister. Kaynak kur tablosunu ve seed'i kabul eder, sayısal oran vermez. ADR-010'un önceki önerileri uygulanmış karara çevrildi: mutlak TRY farkları toplanır, tam 1.000 eşiği aşmaz, kullanılan kurlar snapshot olur, adjustment sayımda uygulanır ve approval ikinci adjustment üretmez. Bunlar PDF ile varsayım ayrımını koruyarak belgelenmiştir.
 
@@ -445,7 +439,7 @@ Son dosya kontrolü: git diff --check exit 0; yalnız LF/CRLF uyarıları. Git i
 
 ## 2026-10-12 / 020 - v0.8.0 commit ve push
 
-Kullanıcı v0.9.0 isteğinin ardından "önce 0.8i commit push edelim sonra 0.9a devam edelim" dedi. İlk v0.9.0 turunda yalnız bağlam/kod okunduğu için yeni sürüm kodu henüz yoktu. Önce v0.8.0 dosyaları stage edildi; git diff --check ve cached --check exit 0. Commit `c87f61eb9e829228c686d611e290b515a3b325a1`, mesaj `feat: add reconciliation four-eyes approval and exchange rates`;25 dosya,1536 ekleme / 53 silme. git push origin main exit 0; remote baf67ef->c87f61e. Sonraki HEAD/origin/main SHA kontrolü eşleşti. Force push/tag/release yok. tmp/HANDOVER.md git check-ignore ile dışlandığı ve git ls-files ile takip edilmediği doğrulandı; handover gönderilmedi.
+v0.8.0 dosyaları stage edildi; git diff --check ve cached --check exit 0. Commit `c87f61eb9e829228c686d611e290b515a3b325a1`, mesaj `feat: add reconciliation four-eyes approval and exchange rates`;25 dosya,1536 ekleme / 53 silme. git push origin main exit 0; remote baf67ef->c87f61e. Sonraki HEAD/origin/main SHA kontrolü eşleşti. Force push/tag/release yok.
 
 Bu commit v0.8.0 kaynakları/migration/testler/belgeler/Postman kapsamıdır. Aynı uygulama kodu için önceki95 unit / 54 DB ve son18 unit / 9 DB doğrulamaları geçerliydi; commit için gereksiz yeni tam test koşusu yapılmadı. v0.9.0 aşağıdaki kayıtta commit/push sonrası geliştirilmiştir.
 
@@ -560,9 +554,3 @@ Hedef: v1.0.0 belge iyileştirmesi. Kullanıcı, README'nin fintech teknik incel
 Değişen bileşen: README.md. Genel Bakış eklendi; işlevsel kapsam profesyonel ürün diliyle anlatıldı. PostgreSQL advisory lock -> ATM pessimistic row lock sırası, global gate ölçek sınırı, bounded banknot seçimi, kalıcı confirm idempotency, EF/trigger append-only ledger, REPEATABLE READ denetim/rapor, aynı transaction'da outbox ve SKIP LOCKED işleme açık alt başlıklarda düzenlendi. SentAt/eventId/traceId ve diğer alanlar tutarlı inline code biçimine taşındı; birleşik kelime ve sayılar düzeltildi. Yapay zekâ kullanımı tek paragrafta doğrulama sahipliği, bağımsız algoritma karşılaştırması, gerçek DB testleri ve .NET/PostgreSQL zaman hassasiyeti düzeltmesiyle açıklandı. Authentication trusted service context varsayımı olarak ifade edildi; API'nin authentication/authorization sağlamadığı ve X-User'ın kimlik beyanı olduğu açık bırakıldı. Üretim için kanıtlanmamış güvenlik, ölçek veya uygunluk iddiası eklenmedi.
 
 Doğrulama: önceki README Git dışındaki tmp/readme-before-editorial.md ile karşılaştırıldı. Beş PowerShell kod bloğu ve Postman tablosu birebir aynı; tüm mevcut docs bağlantıları korundu ve hedef dosyaları bulundu. İstenmeyen ödev/ajan/araç ifadeleri için tarama, tek paragraf AI bölümü ve alanların backtick kontrolü başarılı. PowerShell ConvertFrom-Markdown ile Markdig HTML çıktısında beş pre bloğu ve header/body içeren bir tablo doğrulandı; önizleme tmp/readme-editorial-preview.html altında Git dışındadır. git diff --check exit 0. Değişiklik yalnız belgededir; mevcut 106 unit / 63 PostgreSQL ve 60 istek / 142 Postman sonuçları önceki v1.0.0 koşusuna aittir, bu tur uygulama testleri tekrar çalıştırılmadı. Uygulama davranışı, sürüm, mimari kararlar ve gereksinim durumları değişmedi; yeni commit/push yapılmadı.
-
-## 2026-10-12 / 026 - Bağlam ve kurulum belgelerinin repodan kaldırılması
-
-Hedef: v1.0.0 belge temizliği. Kullanıcı docs/PROJECT_CONTEXT.md ve docs/SETUP.md dosyalarının GitHub'dan kaldırılmasını, README bağlantılarının ve REQUIREMENTS içindeki ek istek maddelerinin silinmesini istedi. İki dosya güncel repository ağacından kaldırıldı; yalnız Git dışındaki tmp/local-docs altında yerel kopyaları korundu. README'deki kurulum rehberi referansı ve bağlam listesi satırı, REQUIREMENTS'taki iki madde silindi. AGENTS.md içindeki artık bulunmayan bağlam dosyasını okuma yönlendirmesi de kaldırıldı. Geçmiş teknik günlük kayıtları tarihsel kanıt olarak korundu; Git geçmişi yeniden yazılmadı.
-
-Doğrulama: silinen yolların çalışma ağacında bulunmadığı, README/REQUIREMENTS içinde iki dosya adına referans kalmadığı ve kalan README belge bağlantılarının çözümlendiği kontrol edildi. ConvertFrom-Markdown çıktısında beş komut bloğu ve bir tablo korunuyor. Yerel kopyalar git check-ignore ile dışlanıyor; git diff --check exit 0. Uygulama ve test kodu değişmedi; önceki testler yeniden çalıştırılmadı. Kullanıcının GitHub'dan kaldırma isteği kapsamında belge silmeleri ve ilgili güncellemeler birlikte commit/push edilir; gönderim kimliği Git geçmişinden izlenir.

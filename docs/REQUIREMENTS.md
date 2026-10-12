@@ -68,4 +68,3 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 - SemVer roadmap: oluşturuldu; `ROADMAP.md`.
 - README'den ayrı teknik review günlüğü: oluşturuldu; `WORKLOG.md`.
 - Teknik kararların gerekçesi: oluşturuldu; `DECISIONS.md`.
-- Initial commit'in Codex tarafından oluşturulması: tamamlandı; fa5b457 GitHub main dalında doğrulandı.
