@@ -1,4 +1,4 @@
-# API sözleşmesi - v0.6.0
+# API sözleşmesi - v0.7.0
 
 Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri string ve büyük harflidir; durumlarda alt çizgi kullanılır (`IN_SERVICE`). Numeric enum, tanımsız enum ve bozuk JSON 400 ProblemDetails döndürür.
 
@@ -14,6 +14,10 @@ Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri str
 | POST | `/api/atms/{id}/unload` | Elle çıkarılan nakdi kaydet |
 | POST | `/api/atms/{id}/deposits` | Müşteri banknotlarını yönlendir; kabul ve iadeleri döndür |
 | POST | `/api/atms/{id}/state` | İzin verilen operasyonel durum geçişini yap |
+| POST | `/api/atms/{id}/reconciliations` | Bakımda tam fiziksel sayım ve fark düzeltmesini kaydet |
+| GET | `/api/atms/{id}/reconciliations/{operationId}` | Sayım snapshot'ını getir |
+| GET | `/api/atms/{id}/report` | ATM/kaset kupürleri ve para birimi toplamlarını getir |
+| GET | `/api/atms/{id}/consistency` | Fiziksel/rezerve bakiyeyi hareket toplamlarıyla karşılaştır |
 
 Oluşturma:
 
@@ -128,3 +132,31 @@ Her girdi grubunda eşleşen recycling kasetleri fiziksel doluluk artan, eşitli
 Yanıt `operationId`, `acceptedCount`, `returnedCount`, `placements`, `returned` içerir. Placement: sıfırdan başlayan `inputIndex`, `cassetteId`, `slot`, normalize `currency`, `denomination`, `count`. Returned: `inputIndex`, orijinal `currency`/`denomination`, `count`, `reason` (UNRECOGNIZED veya CAPACITY_EXCEEDED). Her girdinin kabul + iade adedi gönderilen adede eşittir. Tamamen iade edilen geçerli istek de 200'dür; yeni nakit hareketi oluşmaz.
 
 Kabul edilen stok ve DEPOSIT hareketleri aynı transaction'dadır; yalnızca kabul edilen banknotlar ledger'a girer. Bir işlemde aynı kaset/para/kupür hareketleri birleştirilir, OperationId paylaşılır. Reserve/confirm/deposit aynı PostgreSQL kilit sırasına uyar. Veritabanı hatasında hiçbir kabul kalıcı olmaz. Deposit idempotency desteği bu sürümde yoktur; aynı isteği tekrar göndermek yeni bir yatırma işlemidir. Operasyon kimliği tek başına tekrar engellemez.
+
+## Fiziksel sayım ve mutabakat (v0.7.0)
+
+`POST /api/atms/{id}/reconciliations`, MAINTENANCE ve sıfır rezervasyon ister. Header: `X-User: alice` (yoksa system). Tam fiziksel envanter gönderilir; beş slot birer kez bulunmalıdır.
+
+```json
+{
+  "cassettes": [
+    { "slot": 1, "notes": [{ "currency": "TRY", "denomination": 100, "count": 9 }] },
+    { "slot": 2, "notes": [{ "currency": "TRY", "denomination": 50, "count": 1 }] },
+    { "slot": 3, "notes": [{ "currency": "TRY", "denomination": 20, "count": 9 }] },
+    { "slot": 4, "notes": [{ "currency": "USD", "denomination": 100, "count": 10 }] },
+    { "slot": 5, "notes": [{ "currency": "EUR", "denomination": 500, "count": 1 }] }
+  ]
+}
+```
+
+Recycling notes tam bir konfigüre kupür satırıdır; adet sıfır olsa da yazılır. Deposit için notes boş liste olabilir; belirtilmeyen para/kupürler sıfır sayılır. Null notes, duplicate para/kupür, geçersiz kupür/para ve0-100 dışındaki adet400; toplam kaset kapasitesi100 üstü409. Her kaset önce doğrulanır; geçersiz son kaset ilkini değiştirmez.
+
+201 yanıtı ve Location header'ı oluşur. Gövde `operationId`, `atmId`, `actor`, `occurredAt` (UTC), `lines` içerir. Her line: `cassetteId`, `slot`, `currency`, `denomination`, `storedCount`, `countedCount`, `delta` (counted-stored). Geçmişte kalan sıfır bakiyeli kupürler korunabilir. Fark sıfır olsa da sayım kaydı oluşur; yalnızca sıfır olmayan farklar fiziksel bakiye ve RECONCILIATION_ADJUSTMENT hareketi yaratır. Kayıt/hareket/bakiye tek transaction'dadır. ATM bakımda kalır. Aynı envanteri yeniden gönderme ayrı sayımdır; idempotency desteği yoktur.
+
+`GET /api/atms/{id}/reconciliations/{operationId}` kaydedilmiş snapshot'ı200 döndürür; başka ATM'ye ait veya olmayan sayım404 RECONCILIATION_NOT_FOUND. ATM bulunamayan POST404 ATM_NOT_FOUND, hizmette sayım409 INVALID_ATM_STATE, rezervasyon varsa409 ACTIVE_RESERVATIONS. B9 kur/1.000 TRY eşiği/ikinci kullanıcı onayı bu sürümde uygulanmadı.
+
+## Nakit raporu ve ledger denetimi (v0.7.0)
+
+`GET /api/atms/{id}/report`:200, `atmId`, `name`, `state`, `cassettes`, `notes`, `totals`. CassetteReport içindeki `cassette` önceki GET ATM kaset sözleşmesidir; `totals` kasetin para birimi toplamlarıdır. ATM `notes` alanı para/kupür bazında bütün kasetlerin birleşimidir. Totals TRY/USD/EUR için ayrı `onHandNotes`, `reservedNotes`, `availableNotes`, `onHandAmount`, `reservedAmount`, `availableAmount` alanları taşır. Tutarlar tam para birimi cinsinden kesin decimal toplamdır. Available=OnHand-Reserved; deposit Available muhasebe bakiyesidir ve çekilemez. Genel kur çevrimli TRY toplamı/alarm B10 kapsamında sonra eklenecek.
+
+`GET /api/atms/{id}/consistency`:200, `atmId`, `isConsistent`, `lines`. Her satır `cassetteId`, `slot`, `currency`, `denomination`, `storedOnHand`, `storedReserved`, `ledgerOnHand`, `ledgerReserved`, `isConsistent` taşır. Hareketlerin fiziksel/rezerve deltaları ayrı toplanır; silinmiş bakiye satırı da anahtar birleşimiyle karşılaştırılır. Bütün satırlar aynı REPEATABLE READ snapshot'ını kullanır. Fark bulunması HTTP hatası değildir:200vefalse döner. Endpoint veri onarmaz. Bu kontrol DBCHECK/kaset kapasitesi denetiminin yerine geçmez; kayıtlı ve ledger'dan türetilmiş adet eşitliğini ölçer. Report/consistency için olmayan ATM404 ATM_NOT_FOUND.

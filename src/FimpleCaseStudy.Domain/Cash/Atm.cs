@@ -1,6 +1,6 @@
 namespace FimpleCaseStudy.Domain.Cash;
 
-public sealed class Atm
+public sealed partial class Atm
 {
     private readonly List<Cassette> _cassettes = [];
     private Atm() { }

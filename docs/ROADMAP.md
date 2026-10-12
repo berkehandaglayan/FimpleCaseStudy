@@ -19,8 +19,8 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2 yaşam döngüsü, yükleme/boşaltma ve hareket kaydı temeli | Tamamlandı |
 | v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Tamamlandı (Domain; HTTP quote v0.5.0) |
 | v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Tamamlandı |
-| v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Tamamlandı; henüz commit/push edilmedi |
-| v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Planlandı |
+| v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Tamamlandı; 288892a GitHub'a gönderildi |
+| v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Tamamlandı ve doğrulandı; çalışma ağacında, commit/push edilmedi |
 | v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Planlandı |
 | v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Planlandı |
 | v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Planlandı |
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.5.0 GitHub'a gönderildi. v0.6.0 müşteri yatırması uygulandı ve doğrulandı; sıradaki geliştirme aşaması v0.7.0. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.6.0 GitHub'a gönderildi. v0.7.0 nakit denetimi uygulandı;77 unit / 45 gerçek DB testi ve12 istek / 33 kontrol E2E Postman geçti. Sıradaki geliştirme aşaması v0.8.0. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -90,12 +90,12 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.5.0 GitHub'a g
 
 ## v0.7.0 - Nakit denetimi
 
-- [ ] Bakımda fiziksel sayım; deposit için para/kupür kırılımı.
-- [ ] Sistem-fiziksel farkı ve reconciliation adjustment hareketi.
-- [ ] LOAD, UNLOAD, WITHDRAWAL, DEPOSIT, RESERVATION, RESERVATION_RELEASE, RECONCILIATION_ADJUSTMENT kayıtlarının tamamı.
-- [ ] Hem fiziksel hem rezerve adetlerin hareketlerden yeniden üretilebilmesi.
-- [ ] Consistency endpoint ve kontrollü tutarsızlık testi.
-- [ ] ATM/kaset temel bakiye raporu; mevcut/rezerve/kullanılabilir ve para birimi toplamları.
+- [x] Bakımda fiziksel sayım; deposit için para/kupür kırılımı.
+- [x] Sistem-fiziksel farkı ve reconciliation adjustment hareketi; kalıcı sıfır-fark sayım geçmişi.
+- [x] LOAD, UNLOAD, WITHDRAWAL, DEPOSIT, RESERVATION, RESERVATION_RELEASE, RECONCILIATION_ADJUSTMENT kayıtlarının tamamı.
+- [x] Hem fiziksel hem rezerve adetlerin hareketlerden yeniden üretilebilmesi.
+- [x] Consistency endpoint; kontrollü tutarsızlık ve sorgular arasında deposit commit testi.
+- [x] ATM/kaset temel bakiye raporu; mevcut/rezerve/kullanılabilir ve para birimi toplamları.
 
 ## v0.8.0 - İkinci kullanıcı onayı
 
@@ -114,9 +114,9 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.5.0 GitHub'a g
 
 ## v1.0.0 - Doğrulanmış teslim
 
-- [ ] B3 kabul testleri ve gerçek PostgreSQL entegrasyon testleri geçer.
-- [ ] Postman: create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report.
-- [ ] Postman response'larından ATM/quote gibi kimlikler otomatik taşınır.
+- [x] Mevcut kapsamda B3 kabul testleri ve gerçek PostgreSQL entegrasyon testleri geçer (v0.7.0; final kapsamda tekrar doğrulanacak).
+- [x] Postman: create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report (temel rapor/sayım; B9/B10 eklenince genişletilecek).
+- [x] Postman response'larından ATM/quote/sayım kimlikleri otomatik taşınır.
 - [ ] Temiz veritabanıyla `docker compose up` çalışır ve migration otomatik uygulanır.
 - [ ] README zorunlu bölümleri, varsayımlar, AI kullanımı ve bilinen eksikler gerçeği yansıtır.
 - [ ] Teknik günlük ve gereksinim matrisi test kanıtlarıyla günceldir.

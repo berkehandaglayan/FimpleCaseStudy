@@ -12,6 +12,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
     {
         services.AddScoped<IAtmStore, AtmStore>();
+        services.AddScoped<ICashAuditService, CashAuditService>();
         services.AddScoped<WithdrawalService>();
         services.AddScoped<IWithdrawalService>(sp => sp.GetRequiredService<WithdrawalService>());
         services.AddDbContext<CashManagementDbContext>(options =>

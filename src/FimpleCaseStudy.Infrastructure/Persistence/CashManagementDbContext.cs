@@ -10,6 +10,7 @@ public sealed class CashManagementDbContext(DbContextOptions<CashManagementDbCon
     public DbSet<CashMovement> Movements => Set<CashMovement>();
     public DbSet<WithdrawalQuote> WithdrawalQuotes => Set<WithdrawalQuote>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<ReconciliationRecord> Reconciliations => Set<ReconciliationRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -328,12 +328,58 @@ Karşılaşılan sorunlar:
 | Domain yönlendirme | Recycling->deposit->return; eşitlik sırası, duplicate kapasite paylaşımı, bilinmeyenler, hatalı ikinci satırda atomiklik ve girdi başına adet korunumu |
 | Paralel yatırma | Tek boş yere iki adetlik iki istek; toplam1kabul/3iade; kaset100veledger toplamı tutarlı |
 | Deposit-confirm yarışı | İki işlem200; toplam fiziksel adet başlangıçla aynı, rezervasyon0; ledger aynı stokları üretti |
-| Zorlanmış DEPOSIT INSERT hatası | 500SQLayrıntısıyok; bütün kasetler eski bakiyede, DEPOSIT hareketi yok |
+| Zorlanmış DEPOSIT INSERT hatası | 500 SQLayrıntısıyok; bütün kasetler eski bakiyede, DEPOSIT hareketi yok |
 | Docker compose up --build -d | Başarılı; önceki DB volume korunarak API0.6.0başladı |
-| Postman yatırma | 8istek/19assertion,0başarısız,exit0 |
-| Postman çekim+yatırma | 16istek/37assertion,0başarısız,exit0 |
-| Postman altyapı | 4istek/8assertion,0başarısız,exit0 |
+| Postman yatırma | 8istek/19assertion,0 başarısız,exit0 |
+| Postman çekim+yatırma | 16istek/37assertion,0 başarısız,exit0 |
+| Postman altyapı | 4istek/8assertion,0 başarısız,exit0 |
 
 Loglar ve geçici Postman üretim script'i tmp altında Git dışındadır. Postman geliştirme ATM'leri bakımda bırakıldı. Case study için tanıma simüle girdidir. Deposit idempotency kaynak B7'de istenmedi ve eklenmedi; tekrar gönderilen istek yeni yatırma olarak işlenir. API/README bu sınırı belirtir.
 
 v0.6.0 henüz commit/push edilmedi. A4/A5/A11 ve B7 müşteri yatırma kapsamı tamamlandı; A8 mutabakat ve A12 toplam bakiye raporu sonraki aşamadadır. Bir sonraki sürüm v0.7.0 nakit denetimi, mutabakat temeli ve rapordur.
+
+## 2026-10-12 / 016 - v0.6.0 commit ve push
+
+Kullanıcı "commit push edip 0.7'ye başlayalım" dedi. Önce tamamlanmış v0.6.0 dosyaları stage edildi; git diff --cached --check exit 0 oldu. Commit: `288892a694c69620002e8adc00804cf6c77be123`, mesaj: `feat: add customer deposits with routing and returns`. 18 dosya, 788 ekleme/29 silme. `git push origin main` exit 0; uzak main dee8f00 -> 288892a ilerledi. Sonraki git rev-parse kontrolünde HEAD ve origin/main SHA'ları aynıydı. Geçmiş ezilmedi, force push veya tag/release yapılmadı. Secrets, yerel .env ve tmp test çıktıları commit dışı kaldı.
+
+Bu commit yalnızca v0.6.0 kapsamıdır; aşağıdaki v0.7.0 geliştirmeleri commit/push sonrası yapıldı. v0.6.0'ın önceki kısmi test koşusundaki istemci enum düzeltmesi de bu commit'tedir; v0.7.0 tam koşusu tüm bu eski testleri tekrar başarıyla doğruladı.
+
+## 2026-10-12 / 017 - Fiziksel sayım, hareket replay ve temel nakit raporu
+
+Hedef: v0.7.0. Uygulandı ve doğrulandı; bu aşamanın sonunda yeni dosyalar çalışma ağacındadır, henüz commit/push edilmedi. Alt ajan kullanılmadı. Önceki kullanıcı isteği mevcut v0.6.0'ı commit/push edip v0.7.0'a başlamaktı.
+
+Değişen dosyalar/bileşenler ve teknik gerekçeler:
+
+- `Domain/Cash/Reconciliation.cs`: sayılan kupür, kaset envanteri, stored/counted/delta snapshot'ı ve receipt tipleri; Atm partial üzerindeki Reconcile kuralı. Atm.cs yalnızca partial ilanıyla bu davranışa açıldı. MAINTENANCE, sıfır rezervasyon ve aktör kontrolü yapılır. Beş slot tam/biricik; recycling tam bir konfigüre kupür satırı, deposit tam para/kupür listesi kabul eder. Belirtilmeyen deposit kupürleri sıfır sayılır. Sıfır adet açıkça geçerlidir. Bütün slotlar doğrulandıktan sonra stoklar değiştirilir; geçersiz son slot önceki slotu değiştirmez. Yeni/eksilmiş kupürler ve tarihsel sıfır satırlar anahtar birleşimiyle snapshot'a alınır. Delta counted-stored; yalnız sıfır olmayanlar RECONCILIATION_ADJUSTMENT hareketi üretir, rezervasyon deltasına dokunmaz. Fiziksel sayım ATM'yi bakımda bırakır.
+- `Application/Atms/CashAuditContracts.cs`: reconciliation request, ICashAuditService, kaset/ATM raporları, CurrencyTotals ve ConsistencyReport DTO'ları. HTTP/EF Domain'e girmedi. CurrencyTotals her para biriminde fiziksel/rezerve/kullanılabilir adet ve decimal tutarı ayırır.
+- `Infrastructure/Persistence/ReconciliationRecord.cs`: operationId/ATM/aktör/UTC zaman ilişkisel kolonlar, immutable kullanım senaryosu snapshot'ı JSONB LinesJson. Dördüncü migration `20261012111736_AddReconciliations` ve designer/model snapshot EF CLI ile üretildi. Önceki migration'lar değiştirilmedi. JSON satırları domain'de doğrulanır; DB içindeki JSON'a kaset FK uygulandığı iddia edilmez. Her tam sayım, fark sıfır olsa bile geçmişe yazılır.
+- `CashAuditService.cs`: mevcut global advisory gate -> ATM FOR UPDATE sırası, kaset/bakiye yükleme, Domain sayım, history+movements+balances SaveChanges ve tek commit. DB hatasında üçü de rollback olur. GET history işlem ve ATM kimliğiyle scope edilir. Yeni endpointler dependency injection ile ICashAuditService'e ulaşır.
+- Consistency için PostgreSQL REPEATABLE READ: önce single-query ATM/kaset/bakiyeler, sonra fiziksel/rezerve ledger GROUP BY SUM. İki sorguya READ COMMITTED uygulanırsa araya commit girip sahte drift üretebileceğinden snapshot isolation seçildi. Toplamlar long; stored/ledger anahtar birleşimi silinen bakiye satırını da gösterir. Sonuç her tuple'ın gerçek/stored adetini ve eşitlik bayrağını verir; veri onarmaz. Yanlış fiziksel ve rezervasyon adedi kontrollü SQL ile yalnız test DB'sinde üretildi.
+- Rapor tek AsSingleQuery ile okur; tüm kasetler, birleşik para/kupür adetleri, ATM ve kaset bazında ayrı TRY/USD/EUR parasal toplamları döner. Deposit Available muhasebe ölçüsüdür, dispensing izni değildir. Kur çevrimli tek TRY toplamı ve alarm B10'dur, burada uygulanmış gibi gösterilmedi.
+- `Api/CashAuditEndpoints.cs`, Program.cs, Infrastructure DI ve DbContext güncellendi. POST reconciliations 201/Location; GET history/report/consistency 200. Domain hataları mevcut ProblemDetails yolunu kullanır. Drift200+isConsistent=false, olmayan ATM404. Sürüm metadata/info 0.7.0.
+- `ReconciliationTests.cs`: 17 yeni unit vaka. Signed delta, eksik deposit kupürlerinin sıfırlanması, değişikliksiz sayım, UTC/aktör/operationId korelasyonu, capacity/duplicate/null/invalid banknote, state/reservation ve konfigürasyon sonrası sıfır geçmiş satırı davranışları.
+- `CashAuditApiTests.cs`: 7 yeni gerçek DB vaka. Yedi hareket türünü aynı akışta üretip her tuple'ı replay; başka ATM izolasyonu ve history restart; tutar raporu; kontrollü drift/eksik bakiye; adjustment INSERT failure rollback; ProblemDetails ve bakımda rezervasyon bırakma; parallel reconciliation/load; deterministik snapshot yarışı. Fixture'a opsiyonel service configuration hook'u eklendi. DbCommandInterceptor ilk consistency SELECT'i bittikten sonra okuyan transaction'ı bekletir, başka HTTP deposit commit olur, sonra ledger sorgusu sürer: eski denetim eski snapshot'ta10, sonraki denetim yeni snapshot'ta11 görür ve ikisi de tutarlıdır.
+- `postman/EndToEnd.postman_collection.json`: kullanıcının istediği on adımı sırayla, sonrasında saved count ve consistency GET'lerini çalıştırır; 12 istek/33 assertion. Kimlikler response'larla taşınır, confirm key ATM kimliğinden ve sentetik kart her koşuda timestamp'ten oluşur. Ek environment gerekmez; baseUrl değişkeni vardır. Infra collection version beklentisi 0.7.0 oldu. Önceki collection'lar değişmeden korundu.
+- README/API/ADR-008/ADR-010/ROADMAP/REQUIREMENTS, gerçek kapsam ve gönderim sınırıyla güncellendi. PDF kuralları ile tam envanter/eksik deposit sıfır/JSON snapshot/idempotency varsayımları ayrı yazıldı.
+
+Karşılaşılan ve düzeltilen sorunlar: ilk filtreli test komutunda unit testi CashMovement üzerinde olmayan Slot alanına eriştiği için CS1061 verdi. Domain hareketi CassetteId taşıdığından test doğru kaset kimliğiyle karşılaştıracak şekilde düzeltildi. Bu ilk komut exit1; aynı komuttaki 7 integration testi başarılıydı. Ardından tüm solution koşusu exit0 oldu. Belge patch'inde huncların dosya sırası nedeniyle ilk toplu uygulama reddedildi; hiçbir dosya kısmen değiştirilmedi, patch sıralanarak yeniden uygulandı. Docker/yerel HTTP read-only kontrolü sandbox tarafından engellenince izinli komutlarla tekrarlandı; Docker API açık/DB healthy ve /health Healthy doğrulandı. Bunlar uygulama iş kuralı hatası değildi.
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| İlk filtreli koşu | Unit compile CS1061; integration 7/7 başarılı; komut exit1 |
+| `dotnet test FimpleCaseStudy.sln --no-restore` | Exit0; 77/77 unit +45/45 gerçek PostgreSQL integration; sıfır atlanan |
+| Ledger replay | Aynı ATM'de yedi hareket türü; fiziksel ve rezerve tuple toplamları kayıtlı adetlerle eşit |
+| Kontrollü drift | Stored9/reserved1, ledger10/reserved0 gösterildi; silinen deposit bakiyesi stored0/ledger2 bulundu; veri otomatik değiştirilmedi |
+| Sayım atomicity | Zorlanmış adjustment INSERT hatası500; SQL ayrıntısı response'ta yok; geçmiş ve adjustment yok, eski bakiye/ledger korunuyor |
+| Sayım/load yarışı | Sayım100'e getirir; load önceyse stored11, sonra ise capacity conflict; son fiziksel100 ve ledger tutarlı |
+| REPEATABLE READ yarışı | İlk snapshot 10, araya deposit commit, sonraki snapshot 11; iki denetim de tutarlı |
+| EF has-pending-model-changes | Exit0; model son migration ile eşleşiyor |
+| Docker compose up --build -d | Exit0; mevcut volume korunarak0.7.0 açıldı, yeni migration otomatik; API Up/DB healthy |
+| Yeni Postman EndToEnd | Exit0; 12 istek/33 assertion,0 başarısız |
+| Güncellenen Postman Infrastructure | Exit0; 4 istek/8 assertion,0 başarısız |
+
+Ham çıktılar tmp/v070-targeted-tests.log, tmp/v070-all-tests.log, tmp/v070-compose.log ve tmp/v070-postman-{e2e,infra}.log altında Git dışındadır. Postman CLI koşuları yerel olarak tamamlandı; cloud'a run details yayımlanması için kimlik bilgisi isteyen bilgilendirme, testlerin başarısını etkilemedi. Yeni API şu anda Docker'da çalışır; Postman ATM'si bakımda bırakıldı. Entegrasyon DB'leri Testcontainers tarafından kapatıldı.
+
+Sonuç: A8/A12 ve B8 yerel uygulamada tamamlandı; Part A'nın 12 maddesi ve B1-B8 uygulanmış kapsamdır. Yalnız push edilmiş geliştirmeler değerlendirilirse GitHub halen v0.6.0'dır. B9 onay/kur/eşik, B10 outbox/alarm/genel TRY raporu ve final teslim incelemesi kalır. Mutabakat idempotency almaz, büyük farkta ikinci kullanıcı koşulu henüz yoktur; sayım bakiye-ledger drift'ini otomatik onarmaz. Sonraki hedef v0.8.0, bu aşamanın code/test dosyaları henüz commit/push edilmedi.
+
+Son dosya doğrulaması: `git diff --check` exit 0. Postman JSON dosyalarının fazladan EOF boş satırı temizlendi; testlerden sonra yalnız belge/whitespace değişti, uygulama kodu değiştirilmedi. Yeni migration ve test dosyaları dahil v0.7.0 dosyaları yereldir; release/tag oluşturulmadı.

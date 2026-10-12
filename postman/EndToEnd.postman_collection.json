@@ -1,0 +1,405 @@
+{
+  "item": [
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"created\", () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set(\"atmId\", pm.response.json().id);",
+              "pm.collectionVariables.set(\"confirmKey\", \"postman-\" + pm.response.json().id);",
+              "pm.test(\"five cassettes\", () => pm.expect(pm.response.json().cassettes.length).to.eql(5));",
+              "pm.collectionVariables.set(\"cardNumber\", \"990\" + Date.now());"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"name\":\"Postman full cash scenario\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms"
+      },
+      "name": "Create ATM"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"configured\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"CONFIGURED\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"cassettes\":[{\"slot\":1,\"currency\":\"TRY\",\"denomination\":100},{\"slot\":2,\"currency\":\"TRY\",\"denomination\":50},{\"slot\":3,\"currency\":\"TRY\",\"denomination\":20},{\"slot\":4,\"currency\":\"USD\",\"denomination\":100}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "PUT",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/configuration"
+      },
+      "name": "Configure cassettes"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"loaded\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"LOADED\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"lines\":[{\"slot\":1,\"currency\":\"TRY\",\"denomination\":100,\"count\":10},{\"slot\":3,\"currency\":\"TRY\",\"denomination\":20,\"count\":10},{\"slot\":4,\"currency\":\"USD\",\"denomination\":100,\"count\":10}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/load"
+      },
+      "name": "Load cash"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"in service\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"IN_SERVICE\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"state\":\"IN_SERVICE\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
+      },
+      "name": "In service"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"quote created\", () => pm.response.to.have.status(201));",
+              "const q = pm.response.json(); pm.collectionVariables.set(\"quoteId\", q.id);",
+              "pm.test(\"60 seconds\", () => pm.expect(new Date(q.expiresAt)-new Date(q.createdAt)).to.eql(60000));",
+              "pm.test(\"alternatives\", () => pm.expect(q.options.map(x => x.plan.amount)).to.eql([120,140]));",
+              "pm.test(\"open\", () => pm.expect(q.status).to.eql(\"OPEN\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"cardNumber\":\"{{cardNumber}}\",\"currency\":\"TRY\",\"amount\":130}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/withdrawals/quotes"
+      },
+      "name": "Quote alternatives"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"confirmed\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set(\"confirmBody\", pm.response.text());",
+              "pm.test(\"selected lower\", () => { pm.expect(pm.response.json().selectedOption).to.eql(\"lower\"); pm.expect(pm.response.json().status).to.eql(\"CONFIRMED\"); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"option\":\"lower\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          },
+          {
+            "value": "{{confirmKey}}",
+            "key": "Idempotency-Key"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/withdrawals/quotes/{{quoteId}}/confirm"
+      },
+      "name": "Confirm lower"
+    },
+    {
+      "name": "Deposit after confirmation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/deposits",
+        "body": {
+          "raw": "{\"notes\":[{\"currency\":\"TRY\",\"denomination\":100,\"count\":1},{\"currency\":\"EUR\",\"denomination\":500,\"count\":2},{\"currency\":\"TRY\",\"denomination\":10,\"count\":1}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"deposit ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"accepted count\", () => pm.expect(pm.response.json().acceptedCount).to.eql(3));",
+              "pm.test(\"returned count\", () => pm.expect(pm.response.json().returnedCount).to.eql(1));",
+              "pm.test(\"routing\", () => pm.expect(pm.response.json().placements.map(p=>p.slot)).to.eql([1,5]));",
+              "pm.test(\"unknown returned\", () => pm.expect(pm.response.json().returned[0].reason).to.eql(\"UNRECOGNIZED\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"maintenance\", () => pm.response.to.have.status(200));",
+              "pm.test(\"no reservations\", () => pm.expect(pm.response.json().cassettes.every(x=>x.reserved===0)).to.eql(true));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "raw": "{\"state\":\"MAINTENANCE\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
+      },
+      "name": "Maintenance cancels open quote"
+    },
+    {
+      "name": "Reconcile complete physical count",
+      "request": {
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          },
+          {
+            "value": "alice",
+            "key": "X-User"
+          }
+        ],
+        "body": {
+          "raw": "{\"cassettes\":[{\"slot\":1,\"notes\":[{\"currency\":\"TRY\",\"denomination\":100,\"count\":9}]},{\"slot\":2,\"notes\":[{\"currency\":\"TRY\",\"denomination\":50,\"count\":1}]},{\"slot\":3,\"notes\":[{\"currency\":\"TRY\",\"denomination\":20,\"count\":9}]},{\"slot\":4,\"notes\":[{\"currency\":\"USD\",\"denomination\":100,\"count\":10}]},{\"slot\":5,\"notes\":[{\"currency\":\"EUR\",\"denomination\":500,\"count\":1}]}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"count recorded\", () => pm.response.to.have.status(201));",
+              "const r=pm.response.json(); pm.collectionVariables.set(\"reconciliationId\",r.operationId);",
+              "pm.test(\"signed differences\", () => pm.expect(r.lines.filter(l=>l.delta!==0).map(l=>l.delta)).to.eql([-1,1,-1]));",
+              "pm.test(\"operator recorded\", () => pm.expect(r.actor).to.eql(\"alice\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Report cash by currency",
+      "request": {
+        "header": [],
+        "method": "GET",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/report"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"report ok\", () => pm.response.to.have.status(200));",
+              "const r=pm.response.json();",
+              "pm.test(\"counting leaves maintenance\", () => pm.expect(r.state).to.eql(\"MAINTENANCE\"));",
+              "pm.test(\"currency totals\", () => pm.expect(r.totals.map(t=>[t.currency,t.onHandAmount,t.reservedAmount,t.availableAmount])).to.eql([[\"TRY\",1130,0,1130],[\"USD\",1000,0,1000],[\"EUR\",500,0,500]]));",
+              "pm.test(\"five cassette reports\", () => pm.expect(r.cassettes.length).to.eql(5));",
+              "pm.test(\"deposit breakdown\", () => pm.expect(r.cassettes.find(c=>c.cassette.slot===5).cassette.balances[0].onHand).to.eql(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve count history",
+      "request": {
+        "header": [],
+        "method": "GET",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations/{{reconciliationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"history ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"same operation\", () => pm.expect(pm.response.json().operationId).to.eql(pm.collectionVariables.get(\"reconciliationId\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay movement ledger",
+      "request": {
+        "header": [],
+        "method": "GET",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/consistency"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"consistency ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"physical and reserved replay\", () => {const r=pm.response.json();pm.expect(r.isConsistent).to.eql(true);pm.expect(r.lines.every(l=>l.storedOnHand===l.ledgerOnHand&&l.storedReserved===l.ledgerReserved)).to.eql(true);});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "value": "http://localhost:8080",
+      "key": "baseUrl"
+    }
+  ],
+  "info": {
+    "name": "FimpleCaseStudy - End-to-end cash management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Create -> configure -> load -> service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report; also verify saved count and ledger replay. Only synthetic card data."
+  }
+}

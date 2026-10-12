@@ -200,6 +200,36 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.ToTable("idempotency_records", "cash");
                 });
 
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.ReconciliationRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("AtmId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LinesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtmId", "OccurredAt");
+
+                    b.ToTable("reconciliations", "cash", t =>
+                        {
+                            t.HasCheckConstraint("ck_reconciliation_actor", "length(btrim(\"Actor\")) > 0");
+                        });
+                });
+
             modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.WithdrawalQuote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -296,6 +326,15 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.HasOne("FimpleCaseStudy.Domain.Cash.Cassette", null)
                         .WithMany("Balances")
                         .HasForeignKey("CassetteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.ReconciliationRecord", b =>
+                {
+                    b.HasOne("FimpleCaseStudy.Domain.Cash.Atm", null)
+                        .WithMany()
+                        .HasForeignKey("AtmId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

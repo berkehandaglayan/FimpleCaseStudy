@@ -2,6 +2,8 @@
 
 Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software Developer / ATM Cash Management Backend PDF'si. Bu özet kaynağın yerini almaz. Durumlar gerçek uygulama/test kanıtına göre güncellenir.
 
+Git teslim sınırı: v0.6.0 commit 288892a GitHub'a gönderildi. Bu matris v0.7.0 yerel geliştirme ve doğrulamalarını da içerir; v0.7.0 henüz commit/push edilmedi. Yalnız gönderilen kod sayılacaksa A8/A12/B8 ve EndToEnd teslimi bu aşamada dahil edilmez.
+
 ## Part A
 
 | ID | Gereksinim | Hedef | Durum | Planlanan kanıt |
@@ -10,11 +12,11 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | A3-A5 | 5 kaset, her biri 100; 1 karışık deposit-only, 4 tek para/kupür recycling | v0.3.0-v0.6.0 | Tamamlandı; model, operatör yükleme, çekim ve müşteri yatırması hazır | Konfigürasyon, karma deposit kapasitesi, yönlendirme, taşma ve paralel yatırma testleri |
 | A6 | 1-2 recycling kaseti döviz için | v0.3.0 | Tamamlandı | 0/3/4 red, 1/2 kabul unit testleri |
 | A7 | Hizmete alınmadan konfigürasyon ve elle yüklenen nakit kaydı | v0.3.0 | Tamamlandı | Unit, gerçek DB lifecycle ve Postman setup akışı |
-| A8 | Fiziksel sayım ve sistem farkının kaydı | v0.7.0 | Planlandı | Mutabakat hareketi testi |
+| A8 | Fiziksel sayım ve sistem farkının kaydı | v0.7.0 | Tamamlandı | Tam envanter, karma deposit/eksik kupür sıfır, signed adjustment, kalıcı sayım geçmişi ve rollback |
 | A9 | Çekim banknot kırılımı; tam ödenemiyorsa yakın tutar | v0.4.0-v0.5.0 | Tamamlandı; HTTP quote alternatifleri ve confirm bağlı | B3 unit + gerçek DB alternatif/rezervasyon testi |
 | A10 | Müşteri onayından sonra çekim | v0.5.0 | Tamamlandı | Quote fiziksel bakiyeyi değiştirmiyor; lower confirm yalnızca seçilen planı tüketiyor |
 | A11 | Yatırmada eşleşen recycling, diğerleri deposit | v0.6.0 | Tamamlandı | Unit, PostgreSQL ve Postman yönlendirme/taşma/iade testleri |
-| A12 | ATM banknot adedi ve toplam bakiye görüntüleme | v0.7.0 | Adet kırılımı GET ATM'de hazır; toplam parasal bakiye raporu bekliyor | Rapor doğrulaması |
+| A12 | ATM banknot adedi ve toplam bakiye görüntüleme | v0.7.0 | Tamamlandı; para birimi bazında toplamlar | Kaset/ATM kupür kırılımı, fiziksel/rezerve/kullanılabilir tutarlar; kur çevrimi B10 kapsamı |
 
 ## Part B
 
@@ -27,7 +29,7 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | B5 | Kart/para bazında günlük limit; aktif rezervasyon dahil; plaintext kart yok | v0.5.0 | Tamamlandı | TRY/USD/EUR farklı ATM paralel limit; İstanbul gece yarısı; HMAC DB ve yakalanmış log denetimi |
 | B6 | Paralel quote'larda çifte rezervasyon yok | v0.5.0 | Tamamlandı | Gerçek PostgreSQL'de 8 paralel quote: tek başarılı rezervasyon; paralel confirm tek nakit çıkışı |
 | B7 | Tanınmayanları iade; recycling/deposit taşması; ayrıntılı yanıt | v0.6.0 | Tamamlandı | 12 yeni unit vakası +6 gerçek DB yatırma testi; Postman 8/19 |
-| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | LOAD/UNLOAD/RESERVATION/RESERVATION_RELEASE/WITHDRAWAL/DEPOSIT, EF/DB append-only hazır; mutabakat ve consistency endpoint bekliyor | Ledger toplamı, rollback, UPDATE/DELETE/TRUNCATE red testleri |
+| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | Tamamlandı; yedi hareket türü ve aynı snapshot'ta fiziksel/rezerve replay | Tüm türler tek akışta; kontrollü physical/reserved drift ve eksik bakiye satırı, araya deposit commit girmesi, rollback, mevcut UPDATE/DELETE/TRUNCATE red testleri |
 | B9 | TRY >1.000 farkta başka X-User onayı, hizmete dönüş engeli, kur tablosu | v0.8.0 | Planlandı | Eşik ve ikinci kullanıcı testleri |
 | B10 | Ayrıntılı operasyon raporu, düşük nakit alarmı, transaction outbox, worker | v0.9.0 | Planlandı | Rapor, eşik geçişi, rollback, outbox işleme |
 
@@ -51,15 +53,15 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 | Gereksinim | Hedef | Durum |
 |---|---|---|
 | ASP.NET Core REST API, DI | v0.2.0 | Tamamlandı; ATM yönetimi ve çekim endpointleri DI ile çalışıyor |
-| EF Core code-first ve migration | v0.2.0 | Üç migration: şema, ATM nakit modeli, quote/idempotency; başlangıçta otomatik uygulama doğrulandı |
+| EF Core code-first ve migration | v0.2.0-v0.7.0 | Dört migration: şema, ATM nakit modeli, quote/idempotency, mutabakat geçmişi; otomatik uygulama ve model/snapshot eşleşmesi doğrulandı |
 | SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL 17 Compose ve Testcontainers üzerinde çalışıyor |
 | API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Altyapı için temiz açılış ve tekrar açılış doğrulandı; final kapsamı yeniden doğrulanacak |
 | Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; mevcut ATM/çekim işlemlerinde domain hata kodları ve health testleri hazır |
-| B3 unit testleri | v0.4.0 | 8/8 geçti; toplam 60 unit test başarılı |
-| En az bir gerçek DB entegrasyon testi | v0.2.0-v0.6.0 | 38 farklı test başarılı: tam koşuda önceki 32, düzeltme sonrası yatırma 6/6; ayrıntı WORKLOG |
-| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı (4/8), ATM yönetimi (9/18), çekim+yatırma (16/37), yatırma (8/19); mutabakat/rapor tam akışı bekliyor |
+| B3 unit testleri | v0.4.0 | 8/8 geçti; v0.7.0 tam koşuda 77/77 unit başarılı |
+| En az bir gerçek DB entegrasyon testi | v0.2.0-v0.7.0 | Tam koşuda 45/45 gerçek PostgreSQL testi başarılı; ayrıntı WORKLOG |
+| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v0.7.0/v1.0.0 | Tamamlandı: EndToEnd 12/33, altyapı 4/8 v0.7.0'da geçti. baseUrl collection değişkeni; environment gerekmez. Önceki ATM 9/18, çekim+yatırma 16/37, yatırma 8/19 korundu; B9/B10 sonrası final kapsam tekrar doğrulanacak |
 | Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.6.0 için güncel; final kapsamda tekrar güncellenecek |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.7.0 için güncel; final kapsamda tekrar güncellenecek |
 
 ## Kullanıcının ek istekleri
 

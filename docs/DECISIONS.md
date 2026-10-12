@@ -92,13 +92,15 @@ Limit bütün ATM ağı için kart + para birimi + gün bazındadır: TRY 20.000
 
 ## ADR-008 - Değiştirilemez hareket defteri
 
-Durum: v0.3.0 LOAD/UNLOAD ve append-only koruma; v0.5.0 RESERVATION/RESERVATION_RELEASE/WITHDRAWAL; v0.6.0 DEPOSIT uygulandı. Mutabakat hareket üreticisi ve consistency endpoint planlandı.
+Durum: v0.7.0 ile yedi hareket türü, fiziksel/rezerve replay ve consistency endpoint uygulandı. v0.3.0 append-only, v0.5.0 çekim ve v0.6.0 yatırma temeli korundu.
 
 Her hareket kaset, para birimi, kupür, fiziksel adet değişimi, rezervasyon adet değişimi, işlem tipi, ilişkilendirme kimliği ve zamanı taşır. Örneğin rezervasyonda fiziksel delta 0, rezerve delta +n; serbest bırakmada 0 ve -n. Çekimde fiziksel delta -n ve ayrılmış miktarın release hareketi ayrı izlenir; ikili sayım yapılmaz.
 
 Bakiye satırları hızlı okuma için tutulur; hareketlerin toplamı aynı fiziksel/rezerve bakiyeyi üretmeli. Mevcut hareketler update/delete edilmez; hata düzeltme ters/düzeltici yeni hareketle yapılır. v0.3.0 migration'ında PostgreSQL trigger UPDATE/DELETE/TRUNCATE işlemlerini reddeder; EF SaveChanges koruması da hareket değişikliği/silinmesini engeller. DB yöneticisinin trigger kaldırma yetkisine karşı bir güvenlik garantisi değildir. Hareket INSERT'i bilerek başarısız kılınarak bakiye ve durum değişikliğinin de rollback olduğu doğrulandı.
 
-Consistency endpoint aynı tutarlı okuma görünümünde kayıtlı ve hesaplanmış adetleri karşılaştırır; normal eşzamanlı işlem sahte fark üretmemeli. Ledger altyapısı v0.3.0'da başlar, tüm hareket türleri ve denetimi v0.7.0'da tamamlanır.
+GET /api/atms/{id}/consistency, PostgreSQL REPEATABLE READ transaction'ında ATM/kaset/bakiyeleri ve ledger SUM'larını okur. READ COMMITTED iki sorgu arasında gerçekleşen işlem nedeniyle sahte fark verebileceğinden kullanılmadı. Fiziksel ve rezervasyon deltaları ayrı ayrı long olarak toplanır. Bakiye ve ledger anahtarlarının birleşimi kullanılır; silinen bakiye satırı da tespit edilir. Her satır stored/ledger adetleri ve isConsistent taşır; üst sonuç tüm satırların karşılaştırmasıdır. Bir DB interceptor ile ilk okuma sonrası durdurulan denetim sırasında deposit commit edildi; eski denetim eski tutarlı snapshot'ı, sonraki denetim yeni tutarlı bakiyeyi gördü.
+
+Endpoint salt okunurdur; HTTP 200 içindeki isConsistent=false denetim bulgusudur. Bozuk stored satır otomatik değiştirilmez ve ledger yeniden yazılmaz. Sayım düzeltmesi counted - stored olduğundan daha önceden SQL ile bozulmuş bakiye/ledger farkını kendiliğinden onarma garantisi yoktur. Böyle bir bulgu ayrı inceleme gerektirir. Normal uygulama işlemlerinde yedi hareket türünün toplamı fiziksel/rezerve bakiyeyi üretir.
 
 ## ADR-009 - Yaşam döngüsü ve bakım
 
@@ -110,9 +112,17 @@ Varsayımlar: Bakım geçişinde açık quote'lar güvenli şekilde iptal edilir
 
 ## ADR-010 - Mutabakat ve dört göz onayı
 
-Durum: Temel mutabakat planlandı; B9 yorumları önerilen varsayım.
+Durum: v0.7.0 temel mutabakat ve sayım geçmişi uygulandı. B9 kur/eşik/ikinci kullanıcı onayı v0.8.0 için önerilen varsayımdır; henüz uygulanmadı.
 
 Recycling için tek kupür sayımı, deposit için para/kupür kırılımı alınır. Fark counted - stored olarak kaydedilir; deposit için yalnızca toplam adet almak parasal farkı açıklamaya yetmez.
+
+v0.7.0 sözleşmesi tam envanterdir: beş slot birer kez gönderilir. Recycling kasetinde konfigüre edilen para/kupürün sayımı sıfır dahil açıkça bulunur. Deposit notes listesi boş olabilir; belirtilmeyen para/kupürler sıfır kabul edilir. Böylece kısmi isteğin yanlışlıkla tam sayım sanılması engellenir. Bu giriş biçimi PDF'de verilmediği için bizim varsayımımızdır. Duplicate tuple, geçersiz kupür/para, negatif veya100 üstü adet, karma deposit toplamı100 üstü ve yanlış recycling kupürü tüm isteği mutasyondan önce reddeder.
+
+Sayım MAINTENANCE ve sıfır rezervasyon ister; bakım geçişi mevcut quote'ları zaten iptal eder. Aynı global advisory gate -> ATM satır kilidi protokolü kullanılır. Domain tüm doğrulamaları yapıp stored/counted/delta snapshot'ını ve sadece sıfır olmayan farklar için RECONCILIATION_ADJUSTMENT üretir. Infrastructure header (ATM, aktör, UTC zaman, operationId) ve JSONB sayım satırlarını, bakiyeleri ve hareketleri tek transaction'da kaydeder. Fark sıfır olsa da sayım geçmişi kaydedilir; sıfır delta hareket yaratılmaz. Geçmiş GET ile işlem kimliğinden okunur ve restart sonrası korunur. Satırlar önceki quote planı gibi küçük/sabit kapsamlı snapshot olarak tutulur; JSON içindeki tuple'lara DB FK/check uygulanmaz, Domain doğrular. Normal uygulamada sayım snapshot'ını düzenleyen endpoint yoktur.
+
+X-User yoksa diğer manuel operasyonlarla aynı system varsayılanı kullanılır; boş/128 karakter üstü aktör reddedilir. Kimlik doğrulama sağlamaz. Sayım idempotency anahtarı almaz: aynı envanteri tekrar gönderme yeni sayım geçmişi oluşturur, bakiye değişmemişse ikinci delta sıfırdır. Mutabakat ATM'yi bakımda bırakır. v0.7.0 büyük farklar için ikinci kullanıcı şartını henüz uygulamaz; bu eksik B9 açıkça roadmap'te kalır.
+
+Temel GET report, tek Include/AsSingleQuery ile aynı snapshot'tan kaset adetlerini, ATM para/kupür birleşimini ve TRY/USD/EUR ayrı fiziksel/rezerve/kullanılabilir tutarlarını üretir. Kullanılabilir OnHand-Reserved muhasebe ölçüsüdür; deposit kasetindeki kullanılabilir adet çekilebilir nakit anlamına gelmez. Para birimleri doğrudan toplanmaz. Kur çevrimli genel TRY toplamı ve alarm alanları v0.9.0 kapsamıdır.
 
 PDF, TRY farkların toplamının 1.000'i aşmasını ikinci kullanıcı onayına bağlar. Artı ve eksi farkların birbirini gizlememesi için her farkın mutlak TRY değerlerinin toplamını kullanmak öneriliyor. Tam 1.000 eşik aşımı değildir. Mutabakatta kullanılan kur snapshot'ı saklanır; sonradan kur değişmesi eski onay gereğini değiştirmez.
 

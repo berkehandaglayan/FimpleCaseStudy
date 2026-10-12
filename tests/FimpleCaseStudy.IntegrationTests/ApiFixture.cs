@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 
 namespace FimpleCaseStudy.IntegrationTests;
 
-public sealed class ApiFixture(TimeProvider? clock = null) : IAsyncLifetime
+public sealed class ApiFixture(TimeProvider? clock = null, Action<IServiceCollection>? configureServices = null) : IAsyncLifetime
 {
     public CapturedLogs Logs { get; } = new();
     public PostgreSqlContainer Database { get; } = new PostgreSqlBuilder("postgres:17")
@@ -36,6 +36,7 @@ public sealed class ApiFixture(TimeProvider? clock = null) : IAsyncLifetime
                         services.RemoveAll<TimeProvider>();
                         services.AddSingleton(clock);
                     }
+                    configureServices?.Invoke(services);
                 }));
         Client = Factory.CreateClient();
     }
