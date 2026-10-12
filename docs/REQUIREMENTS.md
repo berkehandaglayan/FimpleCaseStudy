@@ -2,7 +2,7 @@
 
 Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software Developer / ATM Cash Management Backend PDF'si. Bu özet kaynağın yerini almaz. Durumlar gerçek uygulama/test kanıtına göre güncellenir.
 
-Git teslim sınırı: v0.9.0 commit b403528 GitHub'a gönderildi; Part A/B1-B10 işlevsel kapsamı repodadır. v1.0.0 final teslim incelemesi yerelde tamamlandı: temiz kaynak/boş DB açılışı, otomatik migration, Release testleri ve tüm Postman collection'ları doğrulandı. v1.0.0 sürüm metadata'sı ve final belgeleri henüz commit/push edilmedi. Tag/release oluşturulmadı.
+Git teslim sınırı: v0.9.0 commit b403528 GitHub'a gönderildi; Part A/B1-B10 işlevsel kapsamı repodadır. v1.0.0 final teslim incelemesi yerelde tamamlandı: temiz kaynak/boş DB açılışı, otomatik migration, Release testleri ve tüm Postman collection'ları doğrulandı. v1.0.0 sürüm metadata'sı ve final belgeleri 1121c3c ile GitHub main dalına gönderildi. Tag/release oluşturulmadı.
 
 ## Part A
 
@@ -60,8 +60,8 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 | B3 unit testleri | v0.4.0/v1.0.0 | 8/8 geçti; v1.0.0 Release koşusunda 106/106 unit başarılı, sıfır atlanan |
 | En az bir gerçek DB entegrasyon testi | v0.2.0-v1.0.0 | v1.0.0 Release koşusunda 63/63 PostgreSQL testi başarılı, sıfır atlanan; ayrıntı WORKLOG |
 | Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v0.7.0-v1.0.0 | Final temiz kurulumda beşi de geçti: EndToEnd 23/60, Infrastructure 4/8, AtmSetup 9/18, Withdrawals 16/37, Deposits 8/19. baseUrl collection değişkeni; ayrı environment gerekmez |
-| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | https://github.com/berkehandaglayan/FimpleCaseStudy — işlevsel kapsam b403528 ile gönderildi; v1.0.0 sürüm/belge commit'i bekliyor |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | Beş zorunlu bölüm incelendi ve final kanıtlarıyla güncellendi; bu belge değişiklikleri yerelde |
+| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | https://github.com/berkehandaglayan/FimpleCaseStudy — işlevsel kapsam b403528 ile gönderildi; v1.0.0 teslimi 1121c3c ile gönderildi |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | Beş zorunlu bölüm incelendi ve final kanıtlarıyla güncellendi; final belgeler 1121c3c ile gönderildi |
 
 ## Kullanıcının ek istekleri
 

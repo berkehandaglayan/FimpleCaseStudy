@@ -23,7 +23,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Tamamlandı ve doğrulandı; baf67ef GitHub'a gönderildi |
 | v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Tamamlandı ve doğrulandı; c87f61e GitHub'a gönderildi |
 | v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Tamamlandı ve doğrulandı; b403528 GitHub'a gönderildi |
-| v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Yerel teslim doğrulaması tamamlandı; v1.0.0 commit/push bekliyor |
+| v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Tamamlandı; 1121c3c GitHub main dalına gönderildi |
 
 ## v0.1.0 - Başlangıç ve izlenebilirlik
 
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub main b403528 ile v0.9.0 kapsamını içerir. v1.0.0 yerelde doğrulandı: temiz kaynak ve boş Compose DB, altı otomatik migration, yeniden açılışta kalıcılık, 106 unit / 63 gerçek DB testi ve beş Postman collection'ında 60 istek / 142 kontrol başarılı. v1.0.0 sürüm/belge değişiklikleri henüz commit/push edilmedi. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Release/tag oluşturulmadı.
+GitHub main b403528 ile v0.9.0 kapsamını içerir. v1.0.0 yerelde doğrulandı: temiz kaynak ve boş Compose DB, altı otomatik migration, yeniden açılışta kalıcılık, 106 unit / 63 gerçek DB testi ve beş Postman collection'ında 60 istek / 142 kontrol başarılı. v1.0.0 sürüm/belge değişiklikleri 1121c3c ile commit/push edildi. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -120,9 +120,9 @@ GitHub main b403528 ile v0.9.0 kapsamını içerir. v1.0.0 yerelde doğrulandı:
 - [x] Temiz kaynak kopyası ve yeni Compose volume ile açılış; altı migration otomatik, API 1.0.0/health/OpenAPI hazır. Down/up sonrası veri korunur, migration tekrar uygulanmaz.
 - [x] README zorunlu bölümleri, varsayımlar, AI kullanımı ve bilinen eksikler gerçeği yansıtır.
 - [x] Teknik günlük ve gereksinim matrisi test kanıtlarıyla günceldir.
-- [ ] Kaynaklar, migration'lar, testler, Compose ve Postman teslim edilen commit'te bulunur.
+- [x] Kaynaklar, migration'lar, testler, Compose ve Postman teslim edilen commit'te bulunur (1121c3c).
 
-Son madde Git gönderim kapanışıdır: bu bileşenlerin işlevsel kapsamı b403528 ile repodadır; v1.0.0 sürüm metadata'sı ve final doğrulama belgeleri halen yereldedir. Yeni özellik geliştirmesi kalmamıştır.
+Git gönderim kapanışı tamamlandı: işlevsel kapsam, v1.0.0 sürüm metadata'sı ve final doğrulama belgeleri 1121c3c ile GitHub main dalındadır. Yeni özellik geliştirmesi kalmamıştır.
 
 ## Her aşamanın kapanış kuralı
 

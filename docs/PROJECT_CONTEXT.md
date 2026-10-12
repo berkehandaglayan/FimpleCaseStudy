@@ -82,3 +82,7 @@ Kullanıcının repo sorusuna cevabı:
 | `docs/DECISIONS.md` | Alternatifler, teknik seçimler ve açık varsayımlar |
 | `docs/REQUIREMENTS.md` | PDF maddelerinin uygulama ve test durumları |
 | `docs/SETUP.md` | Yerel geliştirme araçları ve doğrulama komutları |
+
+## 2026-10-12 - v1.0.0 gönderimi
+
+Kullanıcının açık commit/push isteğiyle v1.0.0 teslimi 1121c3c olarak GitHub main dalına gönderildi. Roadmap'in Git teslim maddesi kapatıldı. Handover yalnız yerelde; tag/release oluşturulmadı.

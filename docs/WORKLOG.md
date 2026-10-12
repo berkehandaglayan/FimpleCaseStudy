@@ -546,3 +546,9 @@ Kanıt dosyaları Git dışındaki `tmp/` altında: `v100-tests.log`, `v100-test
 Sonuç: Part A/B1-B10 ve teknik teslim gereksinimlerinin yerel doğrulaması tamamlandı; bilinen eksik işlev geliştirmesi yok. README'de açıklanan demo kur, auth yokluğu, global gate ölçek sınırı, JSON doğrulama sınırı, retention/idempotency kapsamı ve outbox en az bir kez teslim davranışı değişmedi. Kalan teslim işlemi v1.0.0 sürüm/belge değişikliklerinin commit/push edilmesidir; roadmap bu maddeyi açık tutar. Release/tag oluşturulmadı. Testler tamamlandıktan sonra yalnız belgeler güncellendi; iş mantığı tekrar değiştirilmedi.
 
 Son statik kontrol: README/docs yerel Markdown bağlantıları çözümlendi, beş Postman JSON dosyası parse edildi, `git diff --check` exit 0 (yalnız Git LF/CRLF uyarıları). Değişiklik kapsamı 10 takip edilen dosyadır; geçici kanıtlar, temiz export ve handover Git dışında. Test edilen uygulama koduyla son çalışma ağacı arasında içerik farkı yoktur.
+
+## 2026-10-12 / 024 - v1.0.0 commit ve push
+
+Kullanıcı "commit push yap" dedi. Önceki turda doğrulanan 10 dosya `1121c3c` commit'ine alındı: `chore: finalize v1.0.0 delivery validation`; 109 ekleme / 34 silme. `git diff --cached --check` exit 0; `git push origin main` exit 0, b403528 -> 1121c3c. İlk sandbox Git index yazımı izin hatası verdi; izinli komutla commit tamamlandı. Force push veya tag/release yapılmadı. Handover, temiz export ve test logları Git dışında kaldı.
+
+Ardından ROADMAP ve REQUIREMENTS gönderilmiş 1121c3c teslimini gösterecek şekilde güncellendi; PROJECT_CONTEXT ve bu günlükte kapanış kaydedildi. Bunlar yalnız belge güncellemeleridir; uygulama/test kodu değişmediğinden önceki 106 unit / 63 PostgreSQL testi ve 60 istek / 142 Postman kontrolü tekrar çalıştırılmadı. Yerel handover'a son gönderim notu eklendi; bu dosya repoya alınmadı.
