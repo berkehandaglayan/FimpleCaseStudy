@@ -235,6 +235,81 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.ToTable("idempotency_records", "cash");
                 });
 
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.LowCashAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AtmId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Available")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BeforeAvailable")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CassetteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<int>("Denomination")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Threshold")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtmId", "OccurredAt");
+
+                    b.HasIndex("CassetteId", "AtmId");
+
+                    b.HasIndex("NextAttemptAt", "OccurredAt")
+                        .HasFilter("\"SentAt\" IS NULL");
+
+                    b.HasIndex("OperationId", "CassetteId")
+                        .IsUnique();
+
+                    b.ToTable("outbox", "cash", t =>
+                        {
+                            t.HasCheckConstraint("ck_outbox_counts", "\"BeforeAvailable\" BETWEEN 0 AND 100 AND \"Available\" BETWEEN 0 AND 9 AND \"Threshold\" = 10 AND \"Attempts\" >= 0");
+
+                            t.HasCheckConstraint("ck_outbox_delivery", "\"NextAttemptAt\" >= \"OccurredAt\" AND (\"SentAt\" IS NULL OR \"SentAt\" >= \"OccurredAt\")");
+
+                            t.HasCheckConstraint("ck_outbox_note", "\"Slot\" BETWEEN 1 AND 4 AND \"Currency\" IN ('TRY','USD','EUR') AND \"Denomination\" IN (20,50,100,500)");
+
+                            t.HasCheckConstraint("ck_outbox_reason", "\"Reason\" IN ('INITIAL_SERVICE_LOW_CASH','AVAILABLE_COUNT_FELL_BELOW_THRESHOLD')");
+                        });
+                });
+
             modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.ReconciliationRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -384,6 +459,16 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.HasOne("FimpleCaseStudy.Domain.Cash.Cassette", null)
                         .WithMany("Balances")
                         .HasForeignKey("CassetteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.LowCashAlert", b =>
+                {
+                    b.HasOne("FimpleCaseStudy.Domain.Cash.Cassette", null)
+                        .WithMany()
+                        .HasForeignKey("CassetteId", "AtmId")
+                        .HasPrincipalKey("Id", "AtmId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

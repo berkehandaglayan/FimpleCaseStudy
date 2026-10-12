@@ -10,6 +10,10 @@ Kullanıcı v0.7.0'ın commit/push edilmesini, kalan roadmap'i başka LLM'de tam
 
 Kullanıcı sonrasında "0.8 için devam edelim" diyerek bu sohbette geliştirmeyi yeniden başlattı. Önceki dört yerel docs değişikliği korundu; handover'ın yerelde kalması talimatı değişmedi. v0.8.0 kur tablosu, kur snapshot'ı ve farklı kullanıcı onayı kapsamıdır. Bu yeni talimat tek başına commit/push veya alt ajan başlatma talebi değildir; geliştirme ve doğrulamaları yerelde tamamlıyoruz. v0.7.0 GitHub baseline'ı baf67ef'tir.
 
+## 2026-10-12 - v0.8.0 gönderimi ve v0.9.0
+
+Kullanıcı v0.9.0'a devam etmemizi istedi, ardından önce v0.8.0 commit/push yapılmasını belirtti. v0.9.0 henüz yalnız read-only inceleme aşamasındayken bu sıralama izlendi. v0.8.0 c87f61e ile gönderildi; ardından B10 rapor/TRY toplamı/düşük stok/outbox/hosted worker geliştirmesi yapıldı. v0.9.0 yerelde doğrulandı, henüz commit/push edilmedi. Handover tmp altında Git dışında kalır; bu tur alt ajan kullanılmadı.
+
 ## Kaynak ve amaç
 
 - Proje: FimpleCaseStudy / ATM Cash Management Backend.

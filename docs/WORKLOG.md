@@ -442,3 +442,54 @@ Kapanış doğrulamaları: son legacy policy/test değişikliğinden sonra `Full
 Sonuç: B9 ve v0.8.0 yerelde tamamlandı ve doğrulandı. Tam koşuda 95 unit / 54 DB testi başarılı; son policy değişikliği 18 unit / 9 DB filtreli koşuyla doğrulandı. Gerçek çıktılar saklandı. Yeni migration ve kaynaklar, önceki dört docs değişikliğiyle birlikte çalışma ağacında. Commit/push/tag yapılmadı; GitHub halen baf67ef/v0.7.0'dır. Yerel handover dışlama tercihi korunur. Sonraki kapsam v0.9.0: B10 genel TRY raporu, düşük stok alarmı ve transaction outbox/worker.
 
 Son dosya kontrolü: git diff --check exit 0; yalnız LF/CRLF uyarıları. Git index boş; HEAD baf67ef. git check-ignore tmp/HANDOVER.md mevcut tmp/ kuralını doğruladı. Testlerden sonra uygulama kodu değiştirilmedi, yalnız durum ve doğrulama belgeleri güncellendi.
+
+## 2026-10-12 / 020 - v0.8.0 commit ve push
+
+Kullanıcı v0.9.0 isteğinin ardından "önce 0.8i commit push edelim sonra 0.9a devam edelim" dedi. İlk v0.9.0 turunda yalnız bağlam/kod okunduğu için yeni sürüm kodu henüz yoktu. Önce v0.8.0 dosyaları stage edildi; git diff --check ve cached --check exit 0. Commit `c87f61eb9e829228c686d611e290b515a3b325a1`, mesaj `feat: add reconciliation four-eyes approval and exchange rates`;25 dosya,1536 ekleme / 53 silme. git push origin main exit 0; remote baf67ef->c87f61e. Sonraki HEAD/origin/main SHA kontrolü eşleşti. Force push/tag/release yok. tmp/HANDOVER.md git check-ignore ile dışlandığı ve git ls-files ile takip edilmediği doğrulandı; handover gönderilmedi.
+
+Bu commit v0.8.0 kaynakları/migration/testler/belgeler/Postman kapsamıdır. Aynı uygulama kodu için önceki95 unit / 54 DB ve son18 unit / 9 DB doğrulamaları geçerliydi; commit için gereksiz yeni tam test koşusu yapılmadı. v0.9.0 aşağıdaki kayıtta commit/push sonrası geliştirilmiştir.
+
+## 2026-10-12 / 021 - v0.9.0 TRY raporu, düşük stok alarmı ve outbox
+
+Hedef v0.9.0/B10. Kullanıcının sıralaması izlendi: önce v0.8.0 push, sonra geliştirme. Alt ajan kullanılmadı. PDF B10 ATM/kaset note/reserved/available adetleri, para birimi toplamları ve overallTRY toplamı; recycling Available%10altında alarm; operation ile aynı transaction'da outbox; hosted service log/sent ister. Eşik tekrar politikası kaynakta belirtilmediği için ADR-012'nin >=10-><10 geçiş önerisi uygulandı; ilk LOADED->IN_SERVICE düşük stokları da kapsar. Bakım dönüşü aynı düşük stoğa tekrar ilk-hizmet alarmı üretmez. Bu yorum kaynak gereksinimden ayrı belgelenmiştir.
+
+Değişen bileşenler ve teknik gerekçeler:
+
+- `Domain/Cash/LowCashPolicy.cs`: kapasite100 için threshold10 ve saf should-alert kuralı. Recycling9ve0düşük,10düşük değil; deposit dışıdır. Tekrar aynı düşük durumda alarm yok, yükselip tekrar düşünce var.
+- `Application/Atms/CashAuditContracts.cs`: ATM OverallTry ve kaset TotalTry (fiziksel/rezerve/kullanılabilir decimal); report ExchangeRates ve LowCash bayrağı. `CashAuditService.ReportAsync`: envanter ve kurları PostgreSQL REPEATABLE READ içinde okuyup her currency tutarını oranıyla çarpar; genel fiziksel TRY bakiye OverallTry.OnHandAmount. Deposit nakdi fiziksel toplamda bulunur, Available dispensing izni değildir. Anlık düşük stok bayrağı alarm geçmişinden ayrılır. Eksik/geçersiz oran INVALID_EXCHANGE_RATES409.
+- `Application/Atms/LowCashContracts.cs`: alert DTO ve IOutboxDispatcher/ILowCashAlertSink sınırları. `CashAuditEndpoints.cs`: sayfalı GET /api/atms/{id}/alerts; valid limit1-100/offset>=0, başka/olmayan ATM için scope/404. Report409 Swagger açıklaması eklendi.
+- `Infrastructure/Persistence/LowCashAlert.cs`: sabit event kolonları, delivery attempt/due/sent alanları, cassette/ATM composite FK, slot/currency/denomination/count/reason/delivery check'leri. OperationId+CassetteId unique, ATM history ve due unsent partial indeksleri. Event kimliği log/retry korelasyonu sağlar; kart veya exception metni yoktur.
+- `CashManagementDbContext.cs`: sync ve async SaveChanges'ten önce LowCash capture. Tracked ATM aggregate içindeki balances original OnHand/Reserved ile final Available karşılaştırılır. Bütün application write yolları (AtmStore, doğrudan WithdrawalService, expiry cleanup, reconciliation) ortak save noktasından geçer. Event baseSaveChanges'ten önce eklenir; operation transaction'ı cash+ledger+quote/sayım+outbox birlikte commit/rollback eder. İlgili hareketin OperationId'si, state-only ilk service için yeni operationGuid kullanılır. Aynı operation/cassette için tekrar Added event eklenmez. Save snapshot'ı confirm'in release+withdrawal ara adımlarını değil net Available değişimini görür; replay yeni event yaratmaz. Dış SQL veya aggregate yüklemeden izole balance yazımını izleme iddiası yoktur.
+- `Persistence/OutboxDispatcher.cs`: olay başına transaction; due unsent satır ORDER BY zaman/id LIMIT1 FOR UPDATE SKIP LOCKED ile claim. Sink çağrısı sırasında row lock tutulur; paralel instance aynı event'i eşzamanlı yayınlamaz. Cash advisory gate alınmaz, nakit işlemi yoktur. Attempt++ ardından başarı SentAt, publisher hatasında5 saniye NextAttemptAt. Exception metni saklanmaz/loglanmaz. Cancellation veya DB/commit hatası transaction'ı rollback eder ve lock bırakılır. Varsayılan sink yalnız yapılandırılmış low-cash warning logudur.
+- `Api/LowCashAlertWorker.cs`, DI/Program: her saniye scoped dispatcher, en fazla20 event. Geçici DB hatasında generic warning ve sonraki tick; graceful cancellation. UTC zamanlar PG mikrosecond precision'a eşitlenir. Publisher/sent arası crash tekrar loga yol açabilir; at-least-once açıkça belgelenir, exactly-once iddia edilmez.
+- Altıncı migration `20261012122233_AddLowCashOutbox`+designer+model snapshot EF ile üretildi; önceki migration'lar değiştirilmedi. Eski DB düşük stokları için geçmiş event seed edilmez; reportLowCash görünürdür, yeni geçişte event oluşur. Mevcut DB volume korunarak Compose yeni migration'ı otomatik uyguladı. Version/API info 0.9.0.
+- `LowCashPolicyTests.cs`:11 yeni unit eşik/ilk-hizmet/deposit vaka. `ReportingAndOutboxTests.cs`:9 yeni gerçek DB vaka; TRY currency/cassette/overall ve rezervasyon tutarları; deterministic report snapshot/rate update; quote->cancel->quote->confirm->replay->deposit->expiry->quote->maintenance->unload/load->count akışında tam6 alarm; initial service tek alarm/deposit dışlama; outboxINSERTfailure'da quote+manualunload+reconciliation rollback; retry5s/restart; paralel worker SKIP LOCKED; publisher başarılı/sent DB failure crash penceresi; cancellation claim bırakma; gerçek hosted worker restart sonrası log/sent.
+- E2E Postman23 istek / 60 assertion: önceki gerekli sıra ve B9 kontrolleri korunur;63630 TRY genel toplamı, kaset toplamlarının genel toplamla eşitliği, anlık lowCash slotları ve4 outbox event (1initial service+3threshold) kontrol edilir. Infrastructure0.9.0,4/8. Önceki ayrı AtmSetup/Withdrawals/Deposits collection'ları korunur, bu tur yeniden çalıştırılmış gibi yazılmaz.
+- README/API/ADR-012/ROADMAP/REQUIREMENTS/PROJECT_CONTEXT gerçeğe göre güncellendi; yerel handover'a yeni snapshot/gönderim sınırı eklendi ve Git dışında bırakıldı.
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| Yeni filtreli testler |11/11 unit + 9/9 gerçek DB;exit 0 |
+| Tam dotnet test solution |106/106 unit + 63/63 PostgreSQL integration;0 skip;exit 0 |
+| FX report snapshot |TRY1700+USD1000*40+EUR1000*45=86700;reserved100/available86600; araya EUR rate90commit girse de eski report86700, sonraki131700 |
+| Net cash threshold akışı |6event; quote/cancel ile re-arm; confirm/replay yeni alarm yok; deposit/expiry yükseltme, unload/count düşüşleri kapsandı |
+| Outbox INSERT zorlanmış hata |quote500, manualunload500, reconciliation500; SQL ayrıntısı response'ta yok; cash/ledger/quote/history/outbox rollback |
+| Retry/restart | İlk sink hatası Attempts=1 / SentAt=null; due öncesi 0 işleme; test saatinde 5 saniye ilerleme sonrası Attempts=2 / SentAt dolu, tek başarılı publish |
+| Parallel worker |bir publisher row lock'u tutarken diğer ProcessBatch0; yayın1, sent1 |
+| Publish-sent crash penceresi |publish sonrası zorlanmış SentAtUPDATE hatası rollback; retry aynı eventId'yi ikinci kez yayınladı; at-least-once kanıtı |
+| Cancellation |claim transaction rollback, Attempts0/SentAtnull; sonraki dispatcher başarılı |
+| Hosted worker |restart sonrası pending event warning loglandı ve Attempts=1/SentAtdolu |
+| EF has-pending-model-changes |exit 0;model son migration snapshot'ıyla eşleşiyor |
+| Compose build/start |exit 0;volume korundu, API 0.9.0/DB healthy |
+| Postman E2E |23 request / 60 assertion;0 failure;exit 0 |
+| Postman Infrastructure |4 request / 8 assertion;0 failure;exit 0 |
+
+Tüm testler ilk ilgili koşularda başarılıydı; bu sürümde başarısız otomatik test düzeltme döngüsü olmadı. Test loglarında kasıtlı rollback vakalarının DB exception'ları bulunur, test başarısızlığı değildir. Tam testten sonra report endpoint'ine yalnız Swagger ProducesProblem409 metadata'sı eklendi; runtime iş mantığı değişmedi, son Compose build ve Postman bu hali doğruladı. EF/compile ve full testlerde TreatWarningsAsErrors koşulu korundu.
+
+Son runtime kontrolü: /api/info 0.9.0, /health Healthy; Swagger alerts yolu mevcut, API Up/PostgreSQL healthy. Son Postman ATM'sinin4 alarmı ayrı HTTP okumada4/4 SentAt dolu ve Attempts=1 gösterdi. İlk PowerShell raporu HTTP dizisini @() ile tek nested eleman saydığı için yanlış1/0 göstermişti; direct assignment ve gerçek dört JSON satırıyla düzeltildi. Bu veri okuma hatasıydı, worker teslim sorunu değildi. E2E ATM bakımda kalır.
+
+Ham çıktılar tmp/v090-targeted-tests.log, tmp/v090-all-tests.log, tmp/v090-postman-{e2e,infra}.log ve tmp/v090-compose*.log altında Git dışındadır. Integration Testcontainers test sonunda temizlendi, mevcut Compose volume'ü silinmedi. Log/sent DB penceresinde duplicate log olasılığı, sabit demo rate ve outbox retry/retention sınırları belgelenmiştir.
+
+Sonuç: Part A ve B1-B10 uygulama/test kapsamı yerelde tamamlandı. v0.9.0 henüz commit/push edilmedi; GitHub c87f61e/v0.8.0'dır. v1.0.0 final temiz Compose açılışı, teslim/README/AI notu ve son repo incelemesi kalır. Tag/release oluşturulmadı, alt ajan veya harici mesaj kullanımı olmadı. Handover yalnız yerelde kalır.
+
+Son dosya kontrolü: git diff --check exit 0; yalnız LF/CRLF dönüşüm uyarıları. Git index boş, HEAD ve origin/main c87f61e; yerel handover check-ignore ile dışlanıyor. Son otomatik test/Compose/Postman kontrolünden sonra yalnız teknik kayıtlar ve README değişti; uygulama iş mantığı değiştirilmedi.

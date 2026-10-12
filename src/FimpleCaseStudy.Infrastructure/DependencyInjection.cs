@@ -13,6 +13,8 @@ public static class DependencyInjection
     {
         services.AddScoped<IAtmStore, AtmStore>();
         services.AddScoped<ICashAuditService, CashAuditService>();
+        services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();
+        services.AddScoped<ILowCashAlertSink, LoggingLowCashAlertSink>();
         services.AddScoped<WithdrawalService>();
         services.AddScoped<IWithdrawalService>(sp => sp.GetRequiredService<WithdrawalService>());
         services.AddDbContext<CashManagementDbContext>(options =>

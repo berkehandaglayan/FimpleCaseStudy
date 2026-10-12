@@ -345,7 +345,10 @@
               "pm.test(\"counting leaves maintenance\", () => pm.expect(r.state).to.eql(\"MAINTENANCE\"));",
               "pm.test(\"currency totals\", () => pm.expect(r.totals.map(t=>[t.currency,t.onHandAmount,t.reservedAmount,t.availableAmount])).to.eql([[\"TRY\",1130,0,1130],[\"USD\",1000,0,1000],[\"EUR\",500,0,500]]));",
               "pm.test(\"five cassette reports\", () => pm.expect(r.cassettes.length).to.eql(5));",
-              "pm.test(\"deposit breakdown\", () => pm.expect(r.cassettes.find(c=>c.cassette.slot===5).cassette.balances[0].onHand).to.eql(1));"
+              "pm.test(\"deposit breakdown\", () => pm.expect(r.cassettes.find(c=>c.cassette.slot===5).cassette.balances[0].onHand).to.eql(1));",
+              "pm.test(\"overall TRY total\", () => pm.expect(pm.response.json().overallTry).to.eql({onHandAmount:63630,reservedAmount:0,availableAmount:63630}));",
+              "pm.test(\"cassette TRY totals sum to overall\", () => {const r=pm.response.json();pm.expect(r.cassettes.reduce((s,c)=>s+c.totalTry.onHandAmount,0)).to.eql(r.overallTry.onHandAmount);});",
+              "pm.test(\"current low cash flags\", () => pm.expect(pm.response.json().cassettes.filter(c=>c.lowCash).map(c=>c.cassette.slot)).to.eql([1,2,3]));"
             ]
           }
         }
@@ -666,6 +669,27 @@
         "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
       },
       "name": "Leave demonstration ATM in maintenance"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"alerts ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"initial service and threshold events\", () => { const a=pm.response.json();pm.expect(a.length).to.eql(4);pm.expect(a.filter(e=>e.reason===\"INITIAL_SERVICE_LOW_CASH\").length).to.eql(1);pm.expect(a.filter(e=>e.reason===\"AVAILABLE_COUNT_FELL_BELOW_THRESHOLD\").length).to.eql(3); });",
+              "pm.test(\"recycling only and valid threshold\", () => pm.expect(pm.response.json().every(e=>e.slot<5&&e.available<10&&e.threshold===10)).to.eql(true));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "name": "Inspect committed low-cash alerts",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/alerts?limit=100",
+        "header": []
+      }
     }
   ],
   "variable": [
@@ -677,6 +701,6 @@
   "info": {
     "name": "FimpleCaseStudy - End-to-end cash management",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Full ordered cash scenario plus four-eyes approval, blocked service, frozen FX rates and approval replay. Seed rates are demonstration data, not market rates."
+    "description": "Ordered full cash scenario, four-eyes approval, snapshot FX and overall TRY reporting, plus committed low-cash alerts. Worker delivery/retry/concurrency are tested against real PostgreSQL. Seed FX is demonstration data."
   }
 }

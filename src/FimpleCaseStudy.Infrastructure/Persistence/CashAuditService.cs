@@ -60,15 +60,40 @@ internal sealed class CashAuditService(CashManagementDbContext db, TimeProvider 
 
     public async Task<AtmCashReport> ReportAsync(Guid id, CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
         var atm = await ReadAtmAsync(id, ct);
+        var rates = await GetExchangeRatesAsync(ct);
+        _ = ReconciliationApproval.DifferenceTry([], rates);
         var view = AtmView.From(atm);
         var notes = view.Cassettes.SelectMany(c => c.Balances).GroupBy(b => (b.Currency, b.Denomination))
             .OrderBy(g => g.Key.Currency).ThenBy(g => g.Key.Denomination)
             .Select(g => new BalanceView(g.Key.Currency, g.Key.Denomination,
                 g.Sum(b => b.OnHand), g.Sum(b => b.Reserved), g.Sum(b => b.Available))).ToArray();
-        return new(id, atm.Name, atm.State, view.Cassettes.Select(c => new CassetteReport(c, Totals(c.Balances))).ToArray(),
-            notes, Totals(notes));
+        var totals = Totals(notes);
+        var report = new AtmCashReport(id, atm.Name, atm.State, view.Cassettes.Select(c =>
+        {
+            var cassetteTotals = Totals(c.Balances);
+            return new CassetteReport(c, cassetteTotals, ConvertToTry(cassetteTotals, rates),
+                c.Kind == CassetteKind.Recycling && c.Currency is not null && c.Available < LowCashPolicy.Threshold);
+        }).ToArray(), notes, totals, ConvertToTry(totals, rates), rates);
+        await transaction.CommitAsync(ct);
+        return report;
     }
+
+    public async Task<IReadOnlyList<LowCashAlertView>> GetAlertsAsync(Guid id, int limit, int offset, CancellationToken ct)
+    {
+        if (limit is < 1 or > 100 || offset < 0)
+            throw new DomainException("INVALID_PAGINATION", "Limit must be 1-100 and offset must not be negative.");
+        if (!await db.Atms.AnyAsync(a => a.Id == id, ct)) throw MissingAtm();
+        var alerts = await db.LowCashAlerts.AsNoTracking().Where(e => e.AtmId == id)
+            .OrderByDescending(e => e.OccurredAt).ThenBy(e => e.Id).Skip(offset).Take(limit).ToArrayAsync(ct);
+        return alerts.Select(e => e.ToView()).ToArray();
+    }
+
+    private static TryTotals ConvertToTry(IReadOnlyList<CurrencyTotals> totals, IReadOnlyList<ExchangeRateSnapshot> rates) => new(
+        totals.Sum(t => t.OnHandAmount * rates.Single(r => r.Currency == t.Currency).RateToTry),
+        totals.Sum(t => t.ReservedAmount * rates.Single(r => r.Currency == t.Currency).RateToTry),
+        totals.Sum(t => t.AvailableAmount * rates.Single(r => r.Currency == t.Currency).RateToTry));
 
     public async Task<ConsistencyReport> CheckConsistencyAsync(Guid id, CancellationToken ct)
     {

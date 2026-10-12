@@ -21,8 +21,8 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Tamamlandı |
 | v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Tamamlandı; 288892a GitHub'a gönderildi |
 | v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Tamamlandı ve doğrulandı; baf67ef GitHub'a gönderildi |
-| v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Tamamlandı ve doğrulandı; yerelde, commit/push edilmedi |
-| v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Planlandı |
+| v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Tamamlandı ve doğrulandı; c87f61e GitHub'a gönderildi |
+| v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Tamamlandı ve doğrulandı; yerelde, henüz commit/push edilmedi |
 | v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Planlandı |
 
 ## v0.1.0 - Başlangıç ve izlenebilirlik
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.7.0 nakit denetimi baf67ef ile GitHub'a gönderildi. Kullanıcı devir kararından sonra bu sohbette v0.8.0 geliştirmesine devam etmemizi istedi; dört göz onayı yerelde tamamlandı ve doğrulandı. Tam koşuda 95 unit / 54 gerçek DB testi, son uyumluluk düzeltmesinden sonra ilgili 18 unit / 9 DB testi ve E2E 22 istek / 54 kontrol geçti. Sıradaki hedef v0.9.0. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.8.0 c87f61e ile GitHub'a gönderildi. v0.9.0 yerelde tamamlandı: 106 unit / 63 gerçek DB testi ve E2E 23 istek / 60 kontrol geçti. Sıradaki hedef v1.0.0 final teslim doğrulamasıdır. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -106,11 +106,11 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.7.0 nakit dene
 
 ## v0.9.0 - Operasyon raporu ve alarm
 
-- [ ] B10 raporunun bütün alanları ve genel TRY toplamı.
-- [ ] Recycling kullanılabilir adedi %10'un altına düştüğünde alarm.
-- [ ] İşlem ve outbox kaydı aynı transaction içinde.
-- [ ] Hosted service: olayları oku, logla, sent işaretle; hata halinde yeniden dene.
-- [ ] Eşik geçişi, rollback ve yeniden işleme davranışı testleri.
+- [x] B10 raporunun bütün alanları ve genel TRY toplamı; aynı snapshot'ta envanter/kur.
+- [x] Recycling kullanılabilir adedi %10'un altına düştüğünde ve ilk hizmette düşük stok alarmı.
+- [x] İşlem ve outbox kaydı aynı transaction içinde; bütün mevcut cash write yolları.
+- [x] Hosted service: row lock/skip-locked, log/sent; publisher hatasında retry.
+- [x] Eşik geçişi, rollback, confirm net değişimi/replay, cancellation, restart, paralel worker ve en az bir kez işleme testleri.
 
 ## v1.0.0 - Doğrulanmış teslim
 

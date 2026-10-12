@@ -1,4 +1,4 @@
-# API sözleşmesi - v0.8.0
+# API sözleşmesi - v0.9.0
 
 Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri string ve büyük harflidir; durumlarda alt çizgi kullanılır (`IN_SERVICE`). Numeric enum, tanımsız enum ve bozuk JSON 400 ProblemDetails döndürür.
 
@@ -19,6 +19,7 @@ Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri str
 | POST | `/api/atms/{id}/reconciliations/{operationId}/approve` | Farklı operatörle pending sayımı onayla |
 | GET | `/api/atms/{id}/report` | ATM/kaset kupürleri ve para birimi toplamlarını getir |
 | GET | `/api/atms/{id}/consistency` | Fiziksel/rezerve bakiyeyi hareket toplamlarıyla karşılaştır |
+| GET | `/api/atms/{id}/alerts?limit=50&offset=0` | Düşük stok alarm geçmişini getir |
 
 Oluşturma:
 
@@ -168,8 +169,20 @@ Mutabakat aktörü trim + lowercase ile saklanır; 1-128 ASCII harf/rakam ve `.`
 
 Pending kayıt varken MAINTENANCE -> IN_SERVICE ve yeni reconciliation 409 RECONCILIATION_APPROVAL_PENDING alır. Approval/state/sayım aynı PostgreSQL lock sırasıyla çalışır; başka ATM'ye ait sayım onaylanamaz. Onay sonrası normal state isteğiyle hizmete dönüş mümkündür. Authentication uygulanmadı; X-User operatör kimlik beyanıdır. Eksik/geçersiz kurda sayım 409 INVALID_EXCHANGE_RATES ve rollback; geçersiz DB onay kaydı da transaction'ı geri alır.
 
-## Nakit raporu ve ledger denetimi (v0.7.0)
+## Nakit raporu ve ledger denetimi (v0.9.0)
 
-`GET /api/atms/{id}/report`:200, `atmId`, `name`, `state`, `cassettes`, `notes`, `totals`. CassetteReport içindeki `cassette` önceki GET ATM kaset sözleşmesidir; `totals` kasetin para birimi toplamlarıdır. ATM `notes` alanı para/kupür bazında bütün kasetlerin birleşimidir. Totals TRY/USD/EUR için ayrı `onHandNotes`, `reservedNotes`, `availableNotes`, `onHandAmount`, `reservedAmount`, `availableAmount` alanları taşır. Tutarlar tam para birimi cinsinden kesin decimal toplamdır. Available=OnHand-Reserved; deposit Available muhasebe bakiyesidir ve çekilemez. Genel kur çevrimli TRY toplamı/alarm B10 kapsamında sonra eklenecek.
+`GET /api/atms/{id}/report`:200, `atmId`, `name`, `state`, `cassettes`, `notes`, `totals`, `overallTry`, `exchangeRates`. CassetteReport içindeki `cassette` önceki GET ATM kaset sözleşmesidir; `totals` kasetin para birimi toplamları, `totalTry` kasetin kur çevrimli toplamları, `lowCash` anlık düşük stok bayrağıdır. ATM `notes` alanı para/kupür bazında bütün kasetlerin birleşimidir. Totals TRY/USD/EUR için ayrı `onHandNotes`, `reservedNotes`, `availableNotes`, `onHandAmount`, `reservedAmount`, `availableAmount` alanları taşır. Tutarlar tam para birimi cinsinden kesin decimal toplamdır. Available=OnHand-Reserved; deposit Available muhasebe bakiyesidir ve çekilemez.
+
+`overallTry` ve `totalTry` üç alan taşır: `onHandAmount`, `reservedAmount`, `availableAmount`. Genel TRY fiziksel bakiye `overallTry.onHandAmount` alanıdır; her para birimi tutarı `exchangeRates` içindeki `rateToTry` ile çarpılıp toplanır. Kur güncel tablodan, inventory ve kurlar aynı REPEATABLE READ snapshot'ından okunur. Kullanılan oranlar response'tadır. Örneğin TRY1130/USD1000/EUR500 ve seed1/40/45 için toplam63630 TRY olur. Bunlar sabit demo kurlarıdır; canlı kur değildir. Eksik/geçersiz kur409 INVALID_EXCHANGE_RATES, olmayan ATM404 ATM_NOT_FOUND.
 
 `GET /api/atms/{id}/consistency`:200, `atmId`, `isConsistent`, `lines`. Her satır `cassetteId`, `slot`, `currency`, `denomination`, `storedOnHand`, `storedReserved`, `ledgerOnHand`, `ledgerReserved`, `isConsistent` taşır. Hareketlerin fiziksel/rezerve deltaları ayrı toplanır; silinmiş bakiye satırı da anahtar birleşimiyle karşılaştırılır. Bütün satırlar aynı REPEATABLE READ snapshot'ını kullanır. Fark bulunması HTTP hatası değildir:200vefalse döner. Endpoint veri onarmaz. Bu kontrol DBCHECK/kaset kapasitesi denetiminin yerine geçmez; kayıtlı ve ledger'dan türetilmiş adet eşitliğini ölçer. Report/consistency için olmayan ATM404 ATM_NOT_FOUND.
+
+## Düşük stok alarmı ve teslim (v0.9.0)
+
+Konfigüre recycling kasetinde Available>=10'dan<10'a düşüş alarm yaratır. 10 düşük stok değildir;9ve0düşüktür. İlk LOADED->IN_SERVICE geçişinde düşük stoklu recycling kasetleri de alarm verir. Bakımdan tekrar hizmete girişte aynı düşük stok yeniden alarm üretmez; stok >=10'a yükselip yeniden düşerse yeni alarm oluşur. Deposit-only alarm dışıdır. Bu tekrar/ilk hizmet politikası bizim varsayımımızdır; kaynak yalnız%10altı kuralı verir.
+
+Alarm cash.outbox'a nakit/rezervasyon işlemiyle aynı DB transaction'ında eklenir. Hata durumunda nakit ve olay birlikte rollback olur. Quote rezervasyonu alarmı tetikleyebilir; release fiziksel adedi değiştirmeden Available yükseltir. Confirm'in release+withdrawal ara adımları yerine net değişim alınır; replay alarmı tekrarlamaz.
+
+`GET /api/atms/{id}/alerts?limit=50&offset=0` 200 liste döndürür. limit1-100/offset>=0; aksi400 INVALID_PAGINATION, ATM yoksa404 ATM_NOT_FOUND. Her kayıtta `id`, `atmId`, `cassetteId`, `slot`, `currency`, `denomination`, `beforeAvailable`, `available`, `threshold`, `operationId`, `reason`, `occurredAt`, `attempts`, `sentAt` bulunur. Reason INITIAL_SERVICE_LOW_CASH veya AVAILABLE_COUNT_FELL_BELOW_THRESHOLD. SentAt null henüz teslim edilmedi; Attempts kaç deneme yapıldığını gösterir. Report lowCash anlık stoktur; alerts geçmiş olay listesidir.
+
+Hosted service her saniye en fazla20 due event dener. Her olay row lock ile seçilir; paralel worker aynı olayı eşzamanlı yayınlamaz. Sink low-cash warning logu yazıp sent işaretler. Publisher hatasında5saniye sonra retry; iptal veya DB hata rollback'i kilidi bırakır. Log başarılı/sent commit başarısız penceresi aynı eventId ile tekrar loga yol açabilir: en az bir kez teslim, exactly-once değil. Kart/sır/publisher exception metni olay payload'ına yazılmaz. Log dışında harici bir bildirim gönderilmez.

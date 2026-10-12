@@ -8,9 +8,11 @@ public sealed record ReconciliationView(Guid OperationId, Guid AtmId, string Act
     IReadOnlyList<ExchangeRateSnapshot>? ExchangeRates, string? ApprovedBy, DateTimeOffset? ApprovedAt);
 public sealed record CurrencyTotals(Currency Currency, int OnHandNotes, int ReservedNotes, int AvailableNotes,
     decimal OnHandAmount, decimal ReservedAmount, decimal AvailableAmount);
-public sealed record CassetteReport(CassetteView Cassette, IReadOnlyList<CurrencyTotals> Totals);
+public sealed record TryTotals(decimal OnHandAmount, decimal ReservedAmount, decimal AvailableAmount);
+public sealed record CassetteReport(CassetteView Cassette, IReadOnlyList<CurrencyTotals> Totals, TryTotals TotalTry, bool LowCash);
 public sealed record AtmCashReport(Guid AtmId, string Name, AtmState State,
-    IReadOnlyList<CassetteReport> Cassettes, IReadOnlyList<BalanceView> Notes, IReadOnlyList<CurrencyTotals> Totals);
+    IReadOnlyList<CassetteReport> Cassettes, IReadOnlyList<BalanceView> Notes, IReadOnlyList<CurrencyTotals> Totals,
+    TryTotals OverallTry, IReadOnlyList<ExchangeRateSnapshot> ExchangeRates);
 public sealed record ConsistencyLine(Guid CassetteId, int Slot, Currency Currency, int Denomination,
     int StoredOnHand, int StoredReserved, long LedgerOnHand, long LedgerReserved)
 {
@@ -26,4 +28,5 @@ public interface ICashAuditService
     Task<IReadOnlyList<ExchangeRateSnapshot>> GetExchangeRatesAsync(CancellationToken ct);
     Task<AtmCashReport> ReportAsync(Guid id, CancellationToken ct);
     Task<ConsistencyReport> CheckConsistencyAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<LowCashAlertView>> GetAlertsAsync(Guid id, int limit, int offset, CancellationToken ct);
 }

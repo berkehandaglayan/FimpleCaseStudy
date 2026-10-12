@@ -27,9 +27,12 @@ public static class CashAuditEndpoints
             Results.Ok(await service.ApproveAsync(id, operationId, Actor(context, required: true), ct)))
             .Produces<ReconciliationView>().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/report", async (Guid id, ICashAuditService service, CancellationToken ct) =>
-            Results.Ok(await service.ReportAsync(id, ct))).Produces<AtmCashReport>().ProducesProblem(404);
+            Results.Ok(await service.ReportAsync(id, ct))).Produces<AtmCashReport>().ProducesProblem(404).ProducesProblem(409);
         group.MapGet("/consistency", async (Guid id, ICashAuditService service, CancellationToken ct) =>
             Results.Ok(await service.CheckConsistencyAsync(id, ct))).Produces<ConsistencyReport>().ProducesProblem(404);
+        group.MapGet("/alerts", async (Guid id, int? limit, int? offset, ICashAuditService service, CancellationToken ct) =>
+            Results.Ok(await service.GetAlertsAsync(id, limit ?? 50, offset ?? 0, ct)))
+            .Produces<IReadOnlyList<LowCashAlertView>>().ProducesProblem(400).ProducesProblem(404);
     }
 
     private static string Actor(HttpContext context, bool required)
