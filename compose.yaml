@@ -1,0 +1,29 @@
+name: fimple-case-study
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: cash_management
+      POSTGRES_USER: cash_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cash_app -d cash_management"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Database: "Host=db;Database=cash_management;Username=cash_app;Password=${POSTGRES_PASSWORD:-local-development-only};Timeout=5"
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:

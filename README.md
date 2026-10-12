@@ -1,38 +1,99 @@
 # FimpleCaseStudy
 
-ATM Cash Management Backend case study. ASP.NET Core REST API, EF Core ve PostgreSQL ile geliştirilecek.
+ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
 
 ## Güncel durum
 
-Başlangıç kapsamı, SemVer roadmap ve teknik çalışma kayıtları hazırlandı. Henüz API, veritabanı şeması, Docker Compose veya otomatik test uygulaması bulunmuyor.
+v0.2.0 altyapısı: dört proje katmanı, otomatik migration, Docker Compose, Swagger, ProblemDetails ve gerçek PostgreSQL entegrasyon testleri eklendi. ATM/kaset ve para işlemleri henüz uygulanmadı; bunlar v0.3.0 ve sonraki sürümlerin kapsamıdır.
 
-## Projeyi ve testleri çalıştırma
+## Çalıştırma
 
-Geliştirme ortamı kurulumu: [SETUP](docs/SETUP.md).
+Docker Desktop Linux engine açıkken repo kökünde:
 
-API ve test komutları v0.2.0 aşamasında, çalıştırılarak doğrulandıktan sonra buraya eklenecek. Son teslimde API ve veritabanı `docker compose up` ile açılacak ve migration'lar otomatik uygulanacak.
+```powershell
+docker compose up --build
+```
+
+API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. İlk migration `cash` şemasını oluşturur; henüz iş tabloları yoktur. Veriler Docker named volume içinde saklanır.
+
+- Swagger: http://localhost:8080/swagger
+- OpenAPI: http://localhost:8080/swagger/v1/swagger.json
+- Hazır olma (DB + migration): http://localhost:8080/health
+- API canlılık: http://localhost:8080/health/live
+- Sürüm bilgisi: http://localhost:8080/api/info
+
+Portları değiştirmek için `.env.example` dosyasını `.env` olarak kopyala ve `API_PORT` / `DB_PORT` değerlerini değiştir. Compose varsayılan parolası yalnızca yerel geliştirme içindir. Portlar localhost'a bağlıdır. `.env` Git'e alınmaz.
+
+Durdurma: `docker compose down` (veritabanı volume'ünü korur).
+
+### API'yi yerelde geliştirme
+
+.NET 10 SDK gerekir. PostgreSQL'i başlatıp PowerShell'de:
+
+```powershell
+docker compose up -d db
+$env:ConnectionStrings__Database = 'Host=localhost;Database=cash_management;Username=cash_app;Password=local-development-only;Timeout=5'
+dotnet run --project src/FimpleCaseStudy.Api -- --urls http://localhost:8080
+```
+
+Compose API servisi de açıksa önce `docker compose stop api` çalıştır veya farklı API portu seç. `.env` içinde DB port/parolası değiştirildiyse bağlantı dizesini de buna göre değiştir. Tam kurulum rehberi: [SETUP](docs/SETUP.md).
+
+## Testler
+
+Docker engine açıkken:
+
+```powershell
+dotnet restore
+dotnet build --no-restore
+dotnet test tests/FimpleCaseStudy.IntegrationTests --no-restore
+```
+
+Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. Testler migration/schema, hazır olma, veritabanı kesintisi, 404 ProblemDetails ve OpenAPI sözleşmesini doğrular. Unit test projesi hazırdır; henüz iş kuralı veya B3 testi içermez.
+
+Çalışan API üzerinde Postman altyapı kontrolleri:
+
+```powershell
+postman collection run postman/Infrastructure.postman_collection.json --no-report-events
+```
+
+Bu collection 4 altyapı isteği içerir; ödevin ATM uçtan uca senaryosu sonraki aşamalarda eklenecek. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
+
+## Migration geliştirme
+
+```powershell
+dotnet tool restore
+dotnet ef migrations add MigrationName --project src/FimpleCaseStudy.Infrastructure --startup-project src/FimpleCaseStudy.Api --output-dir Persistence/Migrations
+```
+
+`dotnet-ef` sürümü repo içindeki tool manifest'inde sabittir. Design-time factory model üretirken DB bağlantısı açmaz. Uygulama başlangıcında migration başarısızsa servis hazır gibi davranmak yerine açılışı durdurur.
 
 ## Mimari ve temel tasarım kararları
 
-Tek uygulama içinde Domain, Application, Infrastructure ve API ayrımı planlandı. Banknot seçimi, transaction sınırları, idempotency ve hareket defteri kararları [DECISIONS](docs/DECISIONS.md) içinde gerekçeleriyle kayıtlıdır. Henüz uygulanmış değildir.
+- Domain: iş kuralları; şu anda yalnızca proje sınırı hazır.
+- Application: kullanım senaryoları ve bağımlılık kayıtları; test edilebilir saat için `TimeProvider` kayıtlı.
+- Infrastructure: PostgreSQL DbContext, migration, tasarım zamanı factory ve DB sağlık kontrolü.
+- Api: HTTP endpoint'leri, DI composition root, Swagger ve hata yanıtları.
+
+Bilinmeyen endpoint gibi HTTP hataları ProblemDetails ile `code`, `traceId` ve `instance` alanları taşır. `/health` başarısızlığında 503 / `DATABASE_NOT_READY`, `/health/live` ise DB'den bağımsızdır. Beklenmeyen çalışma zamanı hataları exception handler üzerinden işlenir; domain hata kodları henüz eklenmedi.
+
+Banknot algoritması, kilitler, idempotency ve ledger tasarımları [DECISIONS](docs/DECISIONS.md) içinde plan olarak kayıtlıdır; uygulanmış özellik değildir. Otomatik migration case study'nin şartıdır; mevcut Compose tasarımı tek API instance'ı içindir.
 
 ## Varsayımlar
 
-Alternatif tutarların rezervasyonu, günlük limitin gün sınırı, bakım geçişi ve mutabakat farklarının değerlendirilmesi gibi noktalar [DECISIONS](docs/DECISIONS.md) içinde kaynak gereksinimlerden ayrı işaretlenmiştir.
+Gün sınırı, alternatif rezervasyonları ve mutabakat yorumları [DECISIONS](docs/DECISIONS.md) içinde kaynak gereksinimlerden ayrı işaretlenmiştir. Docker imajlarında .NET 10 ve PostgreSQL 17 major etiketleri kullanılır; digest sabitlemesi henüz yapılmadı. NuGet paket sürümleri proje dosyalarında sabittir.
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Uygulama geliştirmesi başlamadı. Özellik bazlı güncel durum için [REQUIREMENTS](docs/REQUIREMENTS.md), sürüm hedefleri için [ROADMAP](docs/ROADMAP.md) kullanılmalıdır.
+Part A ATM işlemleri ve B1-B10 henüz tamamlanmadı. B3'ün sekiz kabul testi, çekim eşzamanlılığı, günlük limit, ledger, mutabakat onayı, outbox ve tam Postman akışı sıradaki aşamalardadır. Swagger bu yerel case study ortamında açıktır; authentication henüz yoktur ve ödevde zorunlu değildir.
 
 ## AI kullanımı
 
-Codex; ödev PDF'sinin incelenmesi, kapsamın çıkarılması, geliştirme ortamının kontrol edilmesi ve ilk dokümantasyonun hazırlanmasında kullanıldı. İlk önerideki dakika bazlı plan kullanıcı geri bildirimiyle kaldırıldı; yerine sürüm bazlı ilerleme benimsendi. Uygulama sırasında düzeltilen AI çıktıları çalışma günlüğüne somut örneklerle eklenecek.
+Codex; gereksinim analizi, başlangıç kayıtları, uygulama altyapısı ve testler için kullanıldı. Kullanıcı geri bildirimiyle dakika bazlı plan kaldırıldı. İlk test bağımlılığındaki NuGet güvenlik uyarısı paket güncellenerek giderildi; kesinti testindeki paylaşılan veritabanı bağımlılığı test izolasyonuyla düzeltildi. Ayrıntılı sonuçlar [WORKLOG](docs/WORKLOG.md) içinde tutulur.
 
-## Geliştirme ve teknik review kayıtları
+## Teknik review kayıtları
 
-- [Proje bağlamı ve istek geçmişi](docs/PROJECT_CONTEXT.md)
+- [İstek geçmişi ve proje bağlamı](docs/PROJECT_CONTEXT.md)
 - [SemVer roadmap](docs/ROADMAP.md)
-- [Kronolojik çalışma günlüğü](docs/WORKLOG.md)
+- [Kronolojik teknik günlük](docs/WORKLOG.md)
 - [Teknik kararlar](docs/DECISIONS.md)
 - [Gereksinim ve doğrulama matrisi](docs/REQUIREMENTS.md)
-- [Kurulum adımları](docs/SETUP.md)

@@ -123,3 +123,42 @@ Hedef sürüm: v0.1.0, tamamlandı.
 - Bu kayıtlar ayrı bir dokümantasyon commit'inde saklanacak; yayımlanmış initial commit değiştirilmeyecek. Release/tag oluşturulmadı.
 
 Uygulama testi yok: bu adım Git erişimi ve başlangıç teslimini doğrular. Sıradaki adım v0.2.0 kapsamında solution, proje referansları ve API altyapısı.
+
+## 2026-10-12 / 008 - v0.2.0 uygulama altyapısı
+
+Kullanıcı uygulamaya başlanmasını istedi. Bu adımın kapsamı roadmap'teki v0.2.0 olarak seçildi; ATM ve para iş kuralları sonraki aşamada kalıyor.
+
+Yapılanlar ve gerekçeleri:
+
+- `FimpleCaseStudy.sln`: dört uygulama katmanı ve iki test projesi. Domain dış bağımlılık taşımıyor; Application Domain'e, Infrastructure Application'a, Api ise Application/Infrastructure'a referans veriyor.
+- `global.json`, `Directory.Build.props`: .NET 10, nullable, implicit using, uyarıları hata sayma ve 0.2.0 sürüm metadatası. SDK latestFeature politikası yereldeki 10.0.400 ve Docker .NET 10 SDK ile doğrulandı.
+- `Infrastructure/Persistence`: DbContext, design-time factory, üretilen migration + snapshot. İlk migration cash şemasını oluşturur; EF history tablosu otomatik oluşur. İş tabloları henüz yok. Modelde entity bulunmadığı için gereksiz configuration assembly taraması kaldırıldı.
+- `Api/Program.cs`: connection string zorunlu; DI, migration-before-run, sistem bilgisi, Swagger/OpenAPI, ProblemDetails, readiness ve liveness. Application'da TimeProvider.System kayıtlı; ileride süre testlerinde değiştirilebilir.
+- `Dockerfile`, `.dockerignore`, `compose.yaml`, `.env.example`: Linux API + PostgreSQL 17, non-root API, localhost portları, DB healthcheck, kalıcı volume. Yerel örnek parola configuration ile değiştirilebilir; secrets repoya alınmaz.
+- `tests/FimpleCaseStudy.IntegrationTests`: Testcontainers ve WebApplicationFactory; test başına yeni PostgreSQL. Unit test projesi yalnızca altyapı olarak oluşturuldu; sahte başarılı unit test eklenmedi.
+- `postman/Infrastructure.postman_collection.json`: info, readiness, liveness ve 404 için dört istek / sekiz assertion. Bu, PDF'deki ATM uçtan uca collection'ı değildir.
+- README gerçek çalıştırma, geliştirme, migration ve test komutlarıyla güncellendi. ROADMAP/REQUIREMENTS/DECISIONS uygulanan kapsamı gösterecek şekilde güncellendi.
+
+Karşılaşılan sorunlar ve düzeltmeler:
+
+1. `dotnet new sln` sandbox'ta kullanıcı şablon önbelleğine yazamadı; izinli tekrar başarılı oldu. Kısıtlı ilk build de tamamlanmadı; normal izinlerle build başarılı oldu.
+2. Testcontainers 4.8.0 transitif SSH.NET 2024.2.0 için NU1903 güvenlik uyarısı verdi. Uyarı bastırılmadı; Testcontainers 4.16.0'a yükseltildi. Restore ve build temiz geçti.
+3. İlk entegrasyon çalıştırmasında 3/4 test geçti; ortak fixture'ın DB stop/start işleminden sonra diğer readiness testi 503 aldı. Mutable DB fixture paylaşımı kaldırılarak her teste ayrı container verildi. Son çalıştırmada 4/4 geçti.
+4. Postman CLI ilk denemede sandbox'ın localhost kısıtı yüzünden EACCES verdi. İzinli tekrar aynı collection ile geçti. CLI oturum açılmadığına dair mesaj yazdı ama yerel çalışma exit 0 ve tüm kontroller başarılıydı; Postman hesabı gerektiren bulut paylaşımı yapılmadı (`--no-report-events`).
+
+Doğrulama kanıtları:
+
+| İşlem | Gerçek sonuç |
+|---|---|
+| `dotnet restore FimpleCaseStudy.sln`, `dotnet tool restore` | Başarılı |
+| `dotnet build FimpleCaseStudy.sln --no-restore` | 0 hata, 0 uyarı |
+| `dotnet ef migrations add InitializeCashSchema ...` | Migration ve snapshot üretildi |
+| Gerçek DB entegrasyon testleri | 4 başarılı, 0 başarısız, 0 atlanan |
+| Startup/schema testi | Migration uygulandı, pending yok, cash şeması gerçekten mevcut |
+| Kesinti testi | DB kapalıyken readiness 503/DATABASE_NOT_READY, liveness 200 |
+| 404/OpenAPI testleri | ProblemDetails code/traceId ve Swagger paths doğrulandı |
+| `docker compose up --build -d` | İlk açılışta yeni volume, sağlıklı DB ve çalışan API; kaynak güncellemesi sonrası tekrar build/açılış da başarılı |
+| Postman collection | 4 istek, 8 assertion; 0 başarısız; exit 0 |
+| `docker compose ps` | API Up, DB healthy; localhost 8080/5432 |
+
+v0.2.0 tamamlandı. API ve PostgreSQL inceleme için çalışır bırakıldı. Henüz bu aşama için Git commit/push veya release/tag yapılmadı. Sonraki aşama v0.3.0: ATM/kaset modeli, geçerli konfigürasyonlar, lifecycle, yükleme/boşaltma ve hareket kaydının temeli. B3 kabul testleri ve Part B concurrency kanıtı henüz tamamlanmış değildir.

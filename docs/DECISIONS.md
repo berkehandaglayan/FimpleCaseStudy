@@ -4,13 +4,13 @@ Bu kayıt mimari seçimleri teknik review'da gerekçeleriyle anlatmak içindir. 
 
 ## ADR-001 - Tek uygulama, dört sorumluluk alanı
 
-Durum: Planlandı.
+Durum: v0.2.0 katman ve DI altyapısı uygulandı; iş kullanım senaryoları henüz yok.
 
 ASP.NET Core REST API, EF Core code-first ve PostgreSQL. Domain iş kurallarını ve saf algoritmaları, Application kullanım senaryolarını, Infrastructure veritabanı ve dış teknik bağımlılıkları, Api HTTP sözleşmesini içerir. DI uygulama başlangıcında yapılır. Aynı deployment içinde arka plan işleri çalışır.
 
 Gerekçe: Rezervasyon, limit, hareket ve outbox değişikliklerini tek ilişkisel veritabanı transaction'ında tutmak; iş kurallarını HTTP/EF'den bağımsız test edebilmek. Bu kapsam için mikroservis, mesaj broker'ı veya dağıtık transaction eklenmeyecek. Bir generic repository/CQRS kütüphanesi yalnızca somut ihtiyaç çıkarsa değerlendirilir.
 
-Makinede .NET SDK 10.0.400 doğrulandı. Proje oluşturulurken SDK seçimi ve EF Core/Npgsql paket uyumluluğu restore/build ile doğrulanarak sabitlenecek.
+Makinede .NET SDK 10.0.400 doğrulandı. global.json minimum 10.0.100 + latestFeature ile aynı major/minor içindeki yüklü feature band kullanımını sağlar. EF Core 10.0.4 / Npgsql sağlayıcısı 10.0.3, Swashbuckle 10.3.0 ve Testcontainers 4.16.0 restore/build ile doğrulandı. Paket sürümleri csproj, dotnet-ef 10.0.4 tool manifest içinde sabittir.
 
 ## ADR-002 - Nakit modeli ve stok boyutları
 
@@ -127,3 +127,18 @@ Durum: Planlandı.
 Saf kurallar ve B3 unit testlerle; kilit/transaction/idempotency gerçek PostgreSQL entegrasyon testleriyle; kullanıcı akışı Postman collection ile doğrulanır. EF InMemory concurrency kanıtı olarak kullanılmaz. Testcontainer veya Compose test DB seçimi ortam hazır olduğunda yapılacak.
 
 Her testte hangi davranışın doğrulandığı ve sonuç `WORKLOG.md` içine yazılır. Testler, uygulanan özellikler ve README aynı gerçek durumu anlatır.
+
+
+## ADR-014 - Altyapı başlangıcı ve test izolasyonu
+
+Durum: v0.2.0 uygulandı ve doğrulandı.
+
+İlk migration yalnızca cash şemasını oluşturur. Henüz domain modeli olmayan aşamada örnek/yanıltıcı ATM tabloları yaratılmadı; bunlar v0.3.0 iş kurallarıyla birlikte tasarlanacak. Boş EF modelinde üretilen migration gövdesine EnsureSchema/DropSchema eklendi. Migration snapshot araç tarafından üretildi. API her başlangıçta MigrateAsync çağırır; başarısız migration ile HTTP servisi açılmaz. Tasarım zamanı factory EF CLI'nın model üretmek için API'yi veya PostgreSQL'i başlatmasını gerektirmez.
+
+/health/live sadece process canlılığını; /health DB bağlantısını ve bekleyen migration olmamasını kontrol eder. DB kesintisinde readiness 503/DATABASE_NOT_READY döner, canlılık 200 kalır. HTTP hataları ProblemDetails, code ve traceId içerir. Sağlık yanıtı DB exception ayrıntısını dışarıya vermez.
+
+Testcontainers her test için ayrı PostgreSQL container'ı kullanır. İlk tasarımda ortak fixture'daki stop/start işlemi sonraki readiness testini etkiledi. Testlerin mutable altyapı durumunu paylaşması kaldırıldı; kesinti testi kendi container'ını durdurur, fixture her durumda dispose edilir. API WebApplicationFactory ile test edilir; EF InMemory kullanılmaz.
+
+Docker Compose db healthcheck koşulunu bekler. PostgreSQL kalıcı volume kullanır; testler bu volume'e bağlanmaz. API non-root container kullanıcısıyla çalışır ve portlar localhost'a yayınlanır. Yerel geliştirme varsayılan parolası örnektir; gerçek ortam secret yönetimi henüz kapsamda değildir.
+
+Referanslar: [ASP.NET Core ProblemDetails](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/error-handling?view=aspnetcore-10.0), [Npgsql 10](https://www.npgsql.org/efcore/release-notes/10.0.html).

@@ -50,16 +50,16 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 
 | Gereksinim | Hedef | Durum |
 |---|---|---|
-| ASP.NET Core REST API, DI | v0.2.0 | Planlandı |
-| EF Core code-first ve migration | v0.2.0 | Planlandı |
-| SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL seçildi; kurulmadı |
-| API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Planlandı |
-| Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Planlandı |
+| ASP.NET Core REST API, DI | v0.2.0 | Altyapı tamamlandı; iş endpointleri sonraki aşamada |
+| EF Core code-first ve migration | v0.2.0 | DbContext + ilk schema migration ve otomatik uygulama doğrulandı |
+| SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL 17 Compose ve Testcontainers üzerinde çalışıyor |
+| API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Altyapı için temiz açılış ve tekrar açılış doğrulandı; final kapsamı yeniden doğrulanacak |
+| Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; domain hata kodları sonraki aşamalarda eklenecek |
 | B3 unit testleri | v0.4.0 | Planlandı |
-| En az bir gerçek DB entegrasyon testi | v0.5.0 | Planlandı |
-| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Planlandı |
+| En az bir gerçek DB entegrasyon testi | v0.2.0/v0.5.0 | 4 altyapı testi geçti; concurrency kanıtı B6 ile eklenecek |
+| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı collection hazır (4 istek/8 kontrol); ATM uçtan uca akışı henüz yok |
 | Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | Başlıklar hazır; uygulama sonrası doğrulanacak |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.2.0 için güncel; final kapsamda tekrar güncellenecek |
 
 ## Kullanıcının ek istekleri
 

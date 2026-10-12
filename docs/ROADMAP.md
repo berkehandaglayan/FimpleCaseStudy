@@ -15,7 +15,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | Sürüm | Hedef | Kapsam | Durum |
 |---|---|---|---|
 | v0.1.0 | Başlangıç ve izlenebilirlik | Ortam incelemesi, Git başlangıcı, roadmap, bağlam ve teknik günlük | Tamamlandı |
-| v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Planlandı |
+| v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Tamamlandı |
 | v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2, yükleme/boşaltma ve hareket kaydı temeli | Planlandı |
 | v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Planlandı |
 | v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Planlandı |
@@ -35,19 +35,19 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. Sıradaki geliştirme aşaması v0.2.0; henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. v0.2.0 altyapısı da tamamlandı; sıradaki geliştirme aşaması v0.3.0. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
-- [ ] `src/` altında Domain, Application, Infrastructure ve Api projelerini oluştur.
-- [ ] `tests/` altında unit ve integration test projelerini oluştur.
-- [ ] .NET SDK / paket sürümlerini uyumlu seç ve sabitle; NuGet restore doğrula.
-- [ ] DI kayıtları, EF Core DbContext, Npgsql sağlayıcısı ve ilk migration.
-- [ ] Dockerfile, Compose API + PostgreSQL servisleri; veritabanı hazır olma kontrolü.
-- [ ] API başlangıcında migration uygulaması.
-- [ ] Swagger/OpenAPI, ProblemDetails ve anlamlı hata kodları.
-- [ ] Health endpoint; veritabanına bağımlı hazır olma kontrolü.
-- [ ] Boş veritabanıyla açılış, build ve sağlık kontrolü çalışır.
+- [x] `src/` altında Domain, Application, Infrastructure ve Api projelerini oluştur.
+- [x] `tests/` altında unit ve integration test projelerini oluştur.
+- [x] .NET SDK / paket sürümlerini uyumlu seç ve sabitle; NuGet restore doğrula.
+- [x] DI kayıtları, EF Core DbContext, Npgsql sağlayıcısı ve ilk migration.
+- [x] Dockerfile, Compose API + PostgreSQL servisleri; veritabanı hazır olma kontrolü.
+- [x] API başlangıcında migration uygulaması.
+- [x] Swagger/OpenAPI, ProblemDetails ve anlamlı hata kodları.
+- [x] Health endpoint; veritabanına bağımlı hazır olma kontrolü.
+- [x] Boş veritabanıyla açılış, build ve sağlık kontrolü çalışır.
 
 ## v0.3.0 - ATM ve kaset yaşam döngüsü
 
