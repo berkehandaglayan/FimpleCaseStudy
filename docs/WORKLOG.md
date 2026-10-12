@@ -34,10 +34,8 @@ Oluşturulan dosyalar:
 - `docs/ROADMAP.md`: v0.1.0-v1.0.0 hedefleri ve test edilebilir tamamlanma ölçütleri.
 - `docs/DECISIONS.md`: algoritma, model, transaction, idempotency, rezervasyon alternatifleri, zaman, mutabakat ve outbox kararları.
 - `docs/REQUIREMENTS.md`: A/B maddeleri, teknik teslimler, B3'ün sekiz örneği ve gerçek durum.
-- `docs/SETUP.md`: mevcut araçlar, kullanıcı kurulum adımları ve doğrulama komutları.
 - `docs/WORKLOG.md`: bu kronolojik teknik review kaydı.
 - `README.md`: teslim dokümanı başlangıcı; henüz çalışmayan API için çalıştırma başarısı iddia etmiyor.
-- `AGENTS.md`: sonraki geliştirme adımlarında kayıtların güncel tutulması.
 - `.gitignore`, `.gitattributes`: build çıktıları/geçici veriler/sırlar için ignore ve metin satır sonu kuralları.
 
 Teknik ayrım: Hareket defterinin temeli nakit işlemleriyle birlikte başlıyor; v0.7.0'da eklenmek üzere ertelenmiyor. B4/B5/B6 ortak tutarlılık sınırına sahip olduğundan aynı sürümde tasarlanıyor. B9 ve B10 için ayrı hedefler bulunuyor.
