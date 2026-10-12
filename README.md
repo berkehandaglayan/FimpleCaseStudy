@@ -4,14 +4,16 @@ ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
 
 ## Güncel durum
 
-v0.9.0: ATM/kaset raporuna kur çevrimli TRY toplamları ve düşük stok bilgisi eklendi. Recycling kullanılabilir adedi 10'un altına düşünce nakit işlemiyle aynı transaction'da outbox olayı yazılır; hosted service loglayıp sent işaretler ve hatada tekrar dener. Quote/confirm/cancel/expiry, günlük limit, persistent idempotency, müşteri yatırması, mutabakat/kur snapshot'ı/farklı kullanıcı onayı ve ledger consistency hazırdır. İstek gövdeleri: [API sözleşmesi](docs/API.md). Part A/B1-B10 uygulanmış kapsamdır; v1.0.0 final teslim incelemesi kaldı.
+v1.0.0: Part A ve B1-B10 uygulandı ve teslim doğrulaması tamamlandı. ATM/kaset yönetimi, banknot seçimi, rezervasyonlu çekim, günlük limit, kalıcı idempotency, yatırma, mutabakat ve ikinci kullanıcı onayı, hareket defteri, TRY raporu ve transactional outbox hazırdır. Temiz kaynak kopyası ve boş PostgreSQL ile Compose açılışı doğrulandı; 106 unit ve 63 gerçek DB testi, beş Postman collection'ında 60 istek / 142 kontrol geçti. İstek gövdeleri: [API sözleşmesi](docs/API.md). Git gönderim durumu ve doğrulama kayıtları [ROADMAP](docs/ROADMAP.md) ve [WORKLOG](docs/WORKLOG.md) içindedir.
 
 ## Çalıştırma
 
-Docker Desktop Linux engine açıkken repo kökünde:
+Uygulamayı çalıştırmak için Docker Desktop'ın Linux engine'i yeterlidir; host makineye .NET SDK veya PostgreSQL kurmak gerekmez. Kaynağı alıp başlat:
 
 ```powershell
-docker compose up --build
+git clone https://github.com/berkehandaglayan/FimpleCaseStudy.git
+cd FimpleCaseStudy
+docker compose up
 ```
 
 API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. Altı migration `cash` şemasını, ATM/kaset/bakiye/hareket tablolarını, ledger koruma trigger'ını, quote/idempotency, mutabakat geçmişi/onay, kur ve outbox tablolarını oluşturur. Veriler Docker named volume içinde saklanır. Kur seed'i TRY=1, USD=40, EUR=45 sabit demo verisidir; güncel piyasa kuru değildir. `/api/exchange-rates` ile görüntülenir.
@@ -24,7 +26,7 @@ API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uyg
 
 Portları değiştirmek için `.env.example` dosyasını `.env` olarak kopyala ve `API_PORT` / `DB_PORT` değerlerini değiştir. Compose varsayılan DB parolası ve HMAC anahtarı açıkça yerel geliştirme örneğidir. Gerçek kullanımda `WITHDRAWAL_HMAC_KEY` en az 32 UTF-8 byte içeren uygulama sırrı olmalıdır; tüm instance ve yeniden başlatmalar aynı anahtarı kullanmalıdır. Anahtarı değiştirmek aynı kartın kimliğini değiştirir; otomatik anahtar rotasyonu uygulanmadı. Portlar localhost'a bağlıdır. `.env` Git'e alınmaz.
 
-Durdurma: `docker compose down` (veritabanı volume'ünü korur).
+İlk açılış image'ı derler. Kaynak kodu güncelledikten sonra `docker compose up --build` kullan. Durdurma: `docker compose down` (veritabanı volume'ünü korur). Yeniden `docker compose up` mevcut verileri açar; daha önce uygulanan migration'lar tekrar çalıştırılmaz.
 
 ### API'yi yerelde geliştirme
 
@@ -41,17 +43,17 @@ Compose API servisi de açıksa önce `docker compose stop api` çalıştır vey
 
 ## Testler
 
-Docker engine açıkken:
+.NET 10 SDK ve Docker engine açıkken repo kökünde:
 
 ```powershell
 dotnet restore
-dotnet build --no-restore
-dotnet test FimpleCaseStudy.sln --no-restore
+dotnet build FimpleCaseStudy.sln -c Release --no-restore
+dotnet test FimpleCaseStudy.sln -c Release --no-build
 ```
 
 Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. Banknot testleri sekiz B3 örneğini, rezervasyon/limit sınırlarını, doluluk önceliğini, deposit dışlamasını ve 300 sabit seed'li senaryoda bağımsız exhaustive enumeration karşılaştırmasını içerir. Diğer testler kaset kuralları, lifecycle, karma deposit kapasitesi, atomik yükleme/boşaltma, ATM izolasyonu, paralel yükleme, ledger yazım hatasında rollback, EF/SQL ledger değişmezliği ve altyapıyı doğrular. Son çalıştırma sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
 
-Çalışan API üzerinde Postman altyapı kontrolleri:
+Postman CLI kuruluysa çalışan API üzerinde aşağıdaki collection'ları çalıştır. Postman Desktop kullanıyorsan JSON dosyalarını import edip Collection Runner ile sırayla çalıştırabilirsin:
 
 ```powershell
 postman collection run postman/Infrastructure.postman_collection.json --no-report-events
@@ -63,7 +65,17 @@ postman collection run postman/EndToEnd.postman_collection.json --no-report-even
 
 `EndToEnd` collection'ı istenen sırada create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report işlemlerini ve ayrıca sayım geçmişi/ledger replay kontrolünü çalıştırır. Kur snapshot'ı, onaysız hizmete dönüş/yeni sayım engeli, farklı kullanıcı onayı, replay, genel TRY toplamı ve kaydedilmiş low-cash olaylarını doğrular. Ayrı environment dosyası gerekmez: baseUrl collection değişkenidir, işlem kimlikleri yanıtlardan alınır. Her E2E koşusu yeni ATM, sentetik kart ve idempotency anahtarı kullanır. Son gerçek test/collection sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
 
-Önceki collection'lar da korunur: ATM yönetimi 9/18 (v0.5.0), çekim+yatırma 16/37 ve yatırma 8/19 (v0.6.0) başarılıydı. Çekim akışı replay/conflict, cancel ve bakım iptalini; yatırma akışı taşma ve iadeleri kontrol eder. Expiry, eşzamanlılık, restart ve kayıt hatasında rollback gerçek DB testlerindedir. v0.9.0 tam koşuda 106 unit / 63 integration geçti; EndToEnd 23 istek / 60 kontrol ve Infrastructure 4/8 başarılıdır. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
+v1.0.0 temiz kurulumunda tüm collection'lar yeniden doğrulandı:
+
+| Collection | İstek | Başarılı kontrol |
+|---|---:|---:|
+| Infrastructure | 4 | 8 |
+| AtmSetup | 9 | 18 |
+| Withdrawals | 16 | 37 |
+| Deposits | 8 | 19 |
+| EndToEnd | 23 | 60 |
+
+Çekim akışı replay/conflict, cancel ve bakım iptalini; yatırma akışı taşma ve iadeleri kontrol eder. Expiry, eşzamanlılık, restart ve kayıt hatasında rollback 63 gerçek DB testinin içindedir. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan. CLI'nın cloud'a sonuç yayınlamak için giriş isteyen mesajı yerel test sonucunu etkilemez; bu doğrulamalar için Postman hesabı gerekmedi.
 
 ## Migration geliştirme
 
@@ -107,7 +119,7 @@ Low-cash alarmı >=10'dan<10'a geçişte ve ilk LOADED->IN_SERVICE sırasında d
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Part A ve B1-B10 uygulanmıştır; v1.0.0 temiz final Compose açılışı, teslim kapsamı incelemesi ve son Git gönderimi henüz tamamlanmadı. Kurlar sabit seed verisidir; canlı kur ve kur yönetimi endpoint'i yoktur. Global transaction kilidi, bütün expired quote'ları tarayan worker/işlem temizliği ve quote toplamlarıyla hesaplanan limit bu küçük kapsamın ölçek sınırlamalarıdır. Quote/idempotency/sayım/outbox verileri süresiz saklanır; arşivleme, idempotency saklama süresi ve HMAC anahtar rotasyonu uygulanmadı. Outbox log sink'i kullanır; harici bildirim sistemi/dead-letter yoktur, başarısız sink5saniye aralıkla tekrar denenir. Log/sent arasındaki crash tekrar log üretebilir. SaveChanges alarm hook'u tam aggregate'i yükleyen uygulama protokolünü izler; dış SQL yazımlarını izleyen trigger değildir. JSON olarak saklanan plan/sayım satırlarının DB içinde kaset başına FK doğrulaması yoktur; uygulama domain doğrulaması yapar. Deposit ve mutabakat endpoint'lerinde idempotency yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu yapılmadı. Consistency kontrolü bakiye/ledger drift'ini tespit eder; otomatik veri onarımı veya DB kapasite constraint'lerinin yerini alma amacı taşımaz. Swagger açıktır; authentication ödevde zorunlu değildir ve uygulanmadı.
+Kaynak gereksinimleri bakımından bilinen tamamlanmamış geliştirme yoktur. Kurlar sabit seed verisidir; canlı kur ve kur yönetimi endpoint'i yoktur. Global transaction kilidi, bütün expired quote'ları tarayan worker/işlem temizliği ve quote toplamlarıyla hesaplanan limit bu küçük kapsamın ölçek sınırlamalarıdır. Quote/idempotency/sayım/outbox verileri süresiz saklanır; arşivleme, idempotency saklama süresi ve HMAC anahtar rotasyonu uygulanmadı. Outbox log sink'i kullanır; harici bildirim sistemi/dead-letter yoktur, başarısız sink 5 saniye aralıkla tekrar denenir. Log/sent arasındaki crash tekrar log üretebilir. SaveChanges alarm hook'u tam aggregate'i yükleyen uygulama protokolünü izler; dış SQL yazımlarını izleyen trigger değildir. JSON olarak saklanan plan/sayım satırlarının DB içinde kaset başına FK doğrulaması yoktur; uygulama domain doğrulaması yapar. Deposit ve mutabakat endpoint'lerinde idempotency yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu yapılmadı. Consistency kontrolü bakiye/ledger drift'ini tespit eder; otomatik veri onarımı veya DB kapasite constraint'lerinin yerini alma amacı taşımaz. Swagger açıktır; authentication ödevde zorunlu değildir ve uygulanmadı.
 
 ## AI kullanımı
 
@@ -118,6 +130,8 @@ v0.5.0 çekim akışı GPT-6.1-Sol alt ajanıyla geliştirildi ve ana ajan taraf
 v0.8.0 kur/onay akışı Codex ile geliştirildi. Testler PostgreSQL'in enum metni sıralamasının beklenen TRY/USD/EUR sırasından farklı olduğunu ve .NET timestamp hassasiyetinin DB'den yüksek olması nedeniyle approval replay farkını ortaya çıkardı. API sıralaması ve kayıt öncesi mikrosaniye normalizasyonu düzeltilerek doğrulandı; eski sayımların migration'ında tarihsel kur uydurulmaması açıkça belgelendi.
 
 v0.9.0 rapor/alarm/outbox da Codex ile geliştirildi. İncelemede quote/expiry'nin AtmStore dışında da nakit değiştirdiği dikkate alınıp olay üretimi ortak SaveChanges sınırına bağlandı. Confirm'in ara release/withdrawal adımları yerine net değişim kullanıldı; log ve sent commit'i arasındaki tekrar olasılığı testle gösterilerek belgeye işlendi.
+
+v1.0.0 kapanışında Codex temiz kaynak/boş DB doğrulaması, Release testleri, tüm Postman collection'ları ve belge incelemesi için kullanıldı. Uygulama iş kuralları değiştirilmedi; sürüm alanları ve altyapı collection beklentisi 1.0.0'a taşındı. Test sonuçları ve karşılaşılan araç sorunları teknik günlükte tutuldu.
 
 ## Teknik review kayıtları
 

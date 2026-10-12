@@ -493,3 +493,56 @@ Ham çıktılar tmp/v090-targeted-tests.log, tmp/v090-all-tests.log, tmp/v090-po
 Sonuç: Part A ve B1-B10 uygulama/test kapsamı yerelde tamamlandı. v0.9.0 henüz commit/push edilmedi; GitHub c87f61e/v0.8.0'dır. v1.0.0 final temiz Compose açılışı, teslim/README/AI notu ve son repo incelemesi kalır. Tag/release oluşturulmadı, alt ajan veya harici mesaj kullanımı olmadı. Handover yalnız yerelde kalır.
 
 Son dosya kontrolü: git diff --check exit 0; yalnız LF/CRLF dönüşüm uyarıları. Git index boş, HEAD ve origin/main c87f61e; yerel handover check-ignore ile dışlanıyor. Son otomatik test/Compose/Postman kontrolünden sonra yalnız teknik kayıtlar ve README değişti; uygulama iş mantığı değiştirilmedi.
+
+## 2026-10-12 / 022 - v0.9.0 commit ve push
+
+Kullanıcı v0.9.0'ın push edilmesini, ardından yalnız teknik gereksinim/teslim eksiklerinin açıklanmasını istedi. Geliştirme `b4035289cd95585ab74e22fab15c29d4157d5240` commit'ine alındı: `feat: add TRY reports and transactional low-cash outbox`; 26 dosya, 1376 ekleme / 41 silme. Push c87f61e -> b403528 olarak main dalına başarılı oldu; HEAD ve origin/main eşit, çalışma ağacı temizdi. Force push veya tag/release yapılmadı. Kullanıcının o turdaki kapsam sınırı nedeniyle belgelerdeki gönderim durumları ayrıca değiştirilmedi; önceki 021 kaydı commit öncesi durumu anlatmaya devam eder. Bu tarihsel kayıt v1.0.0 başlatılınca eklendi.
+
+## 2026-10-12 / 023 - v1.0.0 final teslim doğrulaması
+
+Kullanıcı son aşama v1.0.0'a geçmemizi istedi. Hedef yeni iş kuralı eklemek değil, tüm kabul kapsamını temiz kurulumda doğrulamak ve teslim belgelerini kapatmaktı. Alt ajan kullanılmadı. v0.9.0 işlevsel kapsamı b403528 ile zaten GitHub'dadır; bu turdaki v1.0.0 değişiklikleri henüz commit/push edilmedi.
+
+Değişen dosyalar ve gerekçe:
+
+- `Directory.Build.props` ve `src/FimpleCaseStudy.Api/Program.cs`: build sürümü ve `/api/info` yanıtı 1.0.0. Domain, transaction, migration veya iş kuralları değişmedi.
+- `postman/Infrastructure.postman_collection.json`: sürüm beklentisi 1.0.0; collection açıklaması uçtan uca akış için EndToEnd'i işaret ediyor. Diğer dört collection aynı kaldı ve final sürümde tekrar çalıştırıldı.
+- `README.md`: clone/Compose başlangıcı, host SDK gereksiniminin yalnız geliştirme/test için olduğu, ilk build ile sonraki `--build` ayrımı, Release test komutları, beş collection'ın final sonuçları, zorunlu beş teslim bölümü ve AI notu güncellendi. Mimari, gerekçeler, varsayımlar ve bilinen ölçek/entegrasyon sınırları korunuyor.
+- `docs/API.md`: sözleşme başlığı 1.0.0; endpoint gövdeleri değişmedi. `docs/DECISIONS.md` ADR-013: final kanıt yöntemi ve sınırları. `ROADMAP`, `REQUIREMENTS`, `PROJECT_CONTEXT`: gerçek v0.9.0 push durumu ve v1.0.0 yerel kapanışı. `WORKLOG`: bu teknik kanıtlar. Yerel handover güncellendi; repo dışında kalır.
+
+Temiz kaynak ve Docker doğrulamasının yöntemi:
+
+1. b403528 `git archive` ile `tmp/v100-clean` altına açıldı. Yalnız dört v1.0.0 dosyası (props, Program, Infrastructure collection, API belgesi) bu kopyaya taşındı. Başlangıçta bin/obj/.git/.env yoktu. Bu uzak GitHub'dan yeni clone değildir; Git'te takip edilen kaynakların temiz export'udur. Restore/cache'siz çalışma iddia edilmez.
+2. `API_PORT=18080`, `DB_PORT=15432`, `docker compose -p fimple-v100-verify up --build -d` kullanıldı. Compose/Dockerfile değiştirilmedi. Yeni `fimple-v100-verify_postgres_data` volume'ü oluşturuldu; mevcut `fimple-case-study_postgres_data` korunur. API PostgreSQL healthcheck'ini bekledi ve altı migration'ı HTTP sunucusu açılmadan otomatik uyguladı. Elle `database update` çalıştırılmadı.
+3. API 1.0.0, readiness Healthy ve OpenAPI'nin 19 yolu doğrulandı. Beş Postman collection'ı bu ayrı API'ye yönlendirildi. E2E kaynakta istenen create -> configure -> load -> service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report sırasını, ayrıca B9/B10 kontrollerini geçti.
+4. Dört test ATM'sinin consistency sonucu true; 12/12 outbox olayı SentAt dolu. `docker compose ... down`, ardından `up -d` ile aynı volume kullanıldı. Önce/sonra sayımlar aynı: 6 migration, 4 ATM, 41 hareket, 1 reconciliation, 12 outbox ve 12 sent. Yeni startup logunda `Applying migration` yoktur. Bu sayım kontrolü kalıcılık smoke testidir; snapshot/rollback/replay davranışının ayrıntılı kanıtı entegrasyon testleridir.
+5. Mevcut geliştirme Compose projesi `docker compose up --build -d` ile 1.0.0'a yükseltildi. DB container/volume korundu. `localhost:8080/api/info` 1.0.0, `/health` Healthy, `/swagger/index.html` HTTP 200 / Swagger UI. Geçici doğrulama container'ları ve network kapatıldı; doğrulama volume'ü de silinmedi.
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| Temiz kopyada `dotnet test FimpleCaseStudy.sln -c Release --logger trx --results-directory ../v100-test-results` | Restore/build dahil exit 0; 106/106 unit, 63/63 gerçek PostgreSQL integration; sıfır başarısız/atlanan |
+| B3 kabul örnekleri | Sekiz `B3_01`-`B3_08` unit testi final koşunun içinde geçti; greedy tuzağı, alt/üst, stok ve minimum banknot örnekleri |
+| PostgreSQL entegrasyon kapsamı | Gerçek Testcontainers DB; lifecycle, rezervasyon/limit, paralellik, kalıcı replay, expiry, yatırma, ledger/rollback, onay/kur ve outbox testlerinin tümü geçti |
+| `dotnet tool restore` ve EF `has-pending-model-changes --configuration Release --no-build` | Exit 0; model son migration ile eşleşiyor; yedinci migration gerekmedi |
+| Temiz Compose build/start | Exit 0; boş yeni volume, otomatik altı migration, API 1.0.0 / DB healthy |
+| Postman Infrastructure | 4 istek / 8 kontrol; exit 0 |
+| Postman AtmSetup | 9 istek / 18 kontrol; exit 0 |
+| Postman Withdrawals | 16 istek / 37 kontrol; exit 0 |
+| Postman Deposits | 8 istek / 19 kontrol; exit 0 |
+| Postman EndToEnd | 23 istek / 60 kontrol; exit 0 |
+| Beş collection toplamı | 60 istek / 142 kontrol, sıfır başarısız |
+| Container down/up | Veri sayımları aynı, daha önce uygulanmış migration tekrar çalışmadı, readiness başarılı |
+| Test edilen kopya / çalışma ağacı | 86 kaynak/test/collection/build dosyası, LF/CRLF normalize edilince içerik olarak aynı |
+| Yerel API son kontrolü | 1.0.0 / Healthy / Swagger UI 200; ana DB volume'ü korundu |
+
+Karşılaşılan araç/doğrulama sorunları ve çözümü:
+
+- İlk Docker kontrolünde sandbox pipe erişimini reddetti; izinli komutla engine'in açık olduğu görüldü. İlk sandbox dotnet çağrısı çıktı üretmeden bekledi ve durduruldu; başarılı test olarak sayılmadı. İzinli tam Release koşusu yukarıdaki sonuçları verdi.
+- Geçici restart script'inin ilk readiness kontrolü 2 saniyelik HTTP sınırıyla zaman aşımına uğradı. Ayrı HTTP çağrısında API Healthy idi. Script 127.0.0.1 ve 10 saniyelik istek sınırıyla tekrar çalıştırıldı; tüm migration/consistency/restart assertion'ları exit 0 ile geçti. Uygulama kodu bu nedenle değiştirilmedi.
+- İlk ham dosya hash karşılaştırması Git archive LF ile Windows çalışma ağacındaki CRLF yüzünden farklılık gösterdi. Satır sonları normalize edilerek yeniden karşılaştırılan 86 dosyada içerik farkı yoktu; test edilen kod ile final çalışma ağacı eşleşiyor.
+- Postman CLI cloud'a sonuç yayınlamak için giriş isteyen bilgi mesajını yazdı; yerel koşuların hepsi exit 0. Test sonuçlarının cloud'a yayınlandığı iddia edilmez.
+
+Kanıt dosyaları Git dışındaki `tmp/` altında: `v100-tests.log`, `v100-test-results/*.trx`, `v100-ef.log`, `v100-compose.log`, `v100-startup.log`, `v100-restart.log`, `v100-runtime.log`, `v100-postman-{e2e,infrastructure,atmsetup,withdrawals,deposits}.log`, `v100-local-compose.log`. Geçici doğrulama script'i ve temiz export da tmp içindedir; `git check-ignore` handover, loglar ve export'un dışlandığını doğruladı.
+
+Sonuç: Part A/B1-B10 ve teknik teslim gereksinimlerinin yerel doğrulaması tamamlandı; bilinen eksik işlev geliştirmesi yok. README'de açıklanan demo kur, auth yokluğu, global gate ölçek sınırı, JSON doğrulama sınırı, retention/idempotency kapsamı ve outbox en az bir kez teslim davranışı değişmedi. Kalan teslim işlemi v1.0.0 sürüm/belge değişikliklerinin commit/push edilmesidir; roadmap bu maddeyi açık tutar. Release/tag oluşturulmadı. Testler tamamlandıktan sonra yalnız belgeler güncellendi; iş mantığı tekrar değiştirilmedi.
+
+Son statik kontrol: README/docs yerel Markdown bağlantıları çözümlendi, beş Postman JSON dosyası parse edildi, `git diff --check` exit 0 (yalnız Git LF/CRLF uyarıları). Değişiklik kapsamı 10 takip edilen dosyadır; geçici kanıtlar, temiz export ve handover Git dışında. Test edilen uygulama koduyla son çalışma ağacı arasında içerik farkı yoktur.

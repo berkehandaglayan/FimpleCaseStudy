@@ -54,7 +54,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.MapGet("/api/info", () => Results.Ok(new
 {
     name = "ATM Cash Management API",
-    version = "0.9.0"
+    version = "1.0.0"
 })).WithName("GetApiInfo").WithTags("System");
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

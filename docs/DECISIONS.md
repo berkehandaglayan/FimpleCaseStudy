@@ -168,11 +168,13 @@ GET /api/atms/{id}/alerts, operasyon ekibine sayfalı low-cash geçmişini ve At
 
 ## ADR-013 - Test ve teslim kanıtı
 
-Durum: v0.3.0 domain/gerçek DB/yönetim Postman, v0.4.0 B3 ve v0.5.0 müşteri çekimi/concurrency/replay/expiry testleri uygulandı. Güncel kanıt WORKLOG içindedir.
+Durum: v0.3.0-v0.9.0 boyunca domain/gerçek DB/Postman kapsamı geliştirildi. v1.0.0'da final kaynak kopyası üzerinde 106 unit, 63 PostgreSQL integration ve beş Postman collection'ı yeniden doğrulandı. Güncel kanıt WORKLOG içindedir.
 
 Saf kurallar ve B3 unit testlerle; kilit/transaction/idempotency gerçek PostgreSQL entegrasyon testleriyle; kullanıcı akışı Postman collection ile doğrulanır. EF InMemory concurrency kanıtı olarak kullanılmaz. Otomatik entegrasyon testleri için test başına ayrı Testcontainers PostgreSQL, yerel API/Postman için Compose seçildi.
 
 Her testte hangi davranışın doğrulandığı ve sonuç `WORKLOG.md` içine yazılır. Testler, uygulanan özellikler ve README aynı gerçek durumu anlatır.
+
+v1.0.0 teslim kontrolünde b403528'in Git archive çıktısına yalnız final sürüm/API/collection dosyaları kopyalandı. Böylece yerel bin/obj, .env veya Git dışı kaynakların yanlışlıkla kurulum bağımlılığı olması önlendi. Bu uzaktan yeni clone değil, takip edilen kaynaklardan temiz export'tur. Ayrı Compose proje adı, portlar ve yeni named volume mevcut geliştirme DB'sini korudu. Altı migration boş DB'ye otomatik uygulandı; down/up sonrasında kayıt sayıları korundu ve migration'lar yeniden çalışmadı. Önceki restore edilmiş Docker/NuGet cache'lerinin kullanılabilmesi çevrimdışı kurulum garantisi veya cache'siz derleme iddiası değildir. Mimari ve iş kuralları bu kapanışta değiştirilmedi.
 
 
 ## ADR-014 - Altyapı başlangıcı ve test izolasyonu

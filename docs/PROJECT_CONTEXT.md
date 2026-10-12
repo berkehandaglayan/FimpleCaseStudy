@@ -14,6 +14,10 @@ Kullanıcı sonrasında "0.8 için devam edelim" diyerek bu sohbette geliştirme
 
 Kullanıcı v0.9.0'a devam etmemizi istedi, ardından önce v0.8.0 commit/push yapılmasını belirtti. v0.9.0 henüz yalnız read-only inceleme aşamasındayken bu sıralama izlendi. v0.8.0 c87f61e ile gönderildi; ardından B10 rapor/TRY toplamı/düşük stok/outbox/hosted worker geliştirmesi yapıldı. v0.9.0 yerelde doğrulandı, henüz commit/push edilmedi. Handover tmp altında Git dışında kalır; bu tur alt ajan kullanılmadı.
 
+## 2026-10-12 - v0.9.0 gönderimi ve v1.0.0 teslim doğrulaması
+
+Kullanıcı önce v0.9.0'ın push edilmesini ve yalnız teknik gereksinim/teslim eksiklerinin açıklanmasını istedi. v0.9.0 b403528 ile GitHub'a gönderildi; o turda yeni geliştirme yapılmadı. Ardından "tamam şimdi son adıma yani v1.0.0'a geçelim" diyerek final doğrulamayı başlattı. Önceki aşamalardaki işlevler korundu; sürüm 1.0.0'a taşındı, temiz kaynak/boş Compose DB ve yeniden başlatma, Release testleri, beş Postman collection'ı ve README incelendi. Sonuçlar WORKLOG'ta kayıtlıdır. v1.0.0 değişiklikleri yereldedir; bu tur commit/push veya tag/release yapılmadı. Handover yalnız Git dışındaki tmp altında kalır.
+
 ## Kaynak ve amaç
 
 - Proje: FimpleCaseStudy / ATM Cash Management Backend.

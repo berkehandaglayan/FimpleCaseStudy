@@ -22,8 +22,8 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Tamamlandı; 288892a GitHub'a gönderildi |
 | v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Tamamlandı ve doğrulandı; baf67ef GitHub'a gönderildi |
 | v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Tamamlandı ve doğrulandı; c87f61e GitHub'a gönderildi |
-| v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Tamamlandı ve doğrulandı; yerelde, henüz commit/push edilmedi |
-| v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Planlandı |
+| v0.9.0 | Operasyon raporu ve alarm | B10, TRY toplamı, outbox ve hosted service | Tamamlandı ve doğrulandı; b403528 GitHub'a gönderildi |
+| v1.0.0 | Doğrulanmış teslim | Uçtan uca Postman, gerçek DB testleri, temiz Compose açılışı, README ve son inceleme | Yerel teslim doğrulaması tamamlandı; v1.0.0 commit/push bekliyor |
 
 ## v0.1.0 - Başlangıç ve izlenebilirlik
 
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.8.0 c87f61e ile GitHub'a gönderildi. v0.9.0 yerelde tamamlandı: 106 unit / 63 gerçek DB testi ve E2E 23 istek / 60 kontrol geçti. Sıradaki hedef v1.0.0 final teslim doğrulamasıdır. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
+GitHub main b403528 ile v0.9.0 kapsamını içerir. v1.0.0 yerelde doğrulandı: temiz kaynak ve boş Compose DB, altı otomatik migration, yeniden açılışta kalıcılık, 106 unit / 63 gerçek DB testi ve beş Postman collection'ında 60 istek / 142 kontrol başarılı. v1.0.0 sürüm/belge değişiklikleri henüz commit/push edilmedi. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -114,13 +114,15 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.8.0 c87f61e il
 
 ## v1.0.0 - Doğrulanmış teslim
 
-- [x] Mevcut kapsamda B3 kabul testleri ve gerçek PostgreSQL entegrasyon testleri geçer (v0.7.0; final kapsamda tekrar doğrulanacak).
-- [x] Postman: create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report (temel rapor/sayım; B9/B10 eklenince genişletilecek).
+- [x] Final kapsamda B3'ün sekiz kabul testi dahil 106 unit ve 63 gerçek PostgreSQL entegrasyon testi Release derlemesinde geçer; sıfır atlanan.
+- [x] Postman: create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report. B9/B10 dahil EndToEnd 23/60; diğer dört collection da geçer.
 - [x] Postman response'larından ATM/quote/sayım kimlikleri otomatik taşınır.
-- [ ] Temiz veritabanıyla `docker compose up` çalışır ve migration otomatik uygulanır.
-- [ ] README zorunlu bölümleri, varsayımlar, AI kullanımı ve bilinen eksikler gerçeği yansıtır.
-- [ ] Teknik günlük ve gereksinim matrisi test kanıtlarıyla günceldir.
+- [x] Temiz kaynak kopyası ve yeni Compose volume ile açılış; altı migration otomatik, API 1.0.0/health/OpenAPI hazır. Down/up sonrası veri korunur, migration tekrar uygulanmaz.
+- [x] README zorunlu bölümleri, varsayımlar, AI kullanımı ve bilinen eksikler gerçeği yansıtır.
+- [x] Teknik günlük ve gereksinim matrisi test kanıtlarıyla günceldir.
 - [ ] Kaynaklar, migration'lar, testler, Compose ve Postman teslim edilen commit'te bulunur.
+
+Son madde Git gönderim kapanışıdır: bu bileşenlerin işlevsel kapsamı b403528 ile repodadır; v1.0.0 sürüm metadata'sı ve final doğrulama belgeleri halen yereldedir. Yeni özellik geliştirmesi kalmamıştır.
 
 ## Her aşamanın kapanış kuralı
 

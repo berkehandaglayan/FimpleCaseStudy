@@ -2,11 +2,11 @@
 
 Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software Developer / ATM Cash Management Backend PDF'si. Bu özet kaynağın yerini almaz. Durumlar gerçek uygulama/test kanıtına göre güncellenir.
 
-Git teslim sınırı: v0.8.0 commit c87f61e GitHub'a gönderildi. B9 dahil önceki geliştirmeler gönderilmiş kaynak kapsamındadır. Bu matris v0.9.0 yerel B10 geliştirmesini de içerir; v0.9.0 henüz commit/push edilmedi. Final teslim incelemesi tamamlanmadı.
+Git teslim sınırı: v0.9.0 commit b403528 GitHub'a gönderildi; Part A/B1-B10 işlevsel kapsamı repodadır. v1.0.0 final teslim incelemesi yerelde tamamlandı: temiz kaynak/boş DB açılışı, otomatik migration, Release testleri ve tüm Postman collection'ları doğrulandı. v1.0.0 sürüm metadata'sı ve final belgeleri henüz commit/push edilmedi. Tag/release oluşturulmadı.
 
 ## Part A
 
-| ID | Gereksinim | Hedef | Durum | Planlanan kanıt |
+| ID | Gereksinim | Hedef | Durum | Doğrulama kanıtı |
 |---|---|---|---|---|
 | A1-A2 | TRY/USD/EUR; yalnızca 20/50/100/500, bozuk para yok | v0.3.0 | Mevcut işlemlerde tamamlandı | Geçerli/geçersiz giriş unit testleri ve JSON boundary entegrasyon testleri |
 | A3-A5 | 5 kaset, her biri 100; 1 karışık deposit-only, 4 tek para/kupür recycling | v0.3.0-v0.6.0 | Tamamlandı; model, operatör yükleme, çekim ve müşteri yatırması hazır | Konfigürasyon, karma deposit kapasitesi, yönlendirme, taşma ve paralel yatırma testleri |
@@ -20,7 +20,7 @@ Git teslim sınırı: v0.8.0 commit c87f61e GitHub'a gönderildi. B9 dahil önce
 
 ## Part B
 
-| ID | Gereksinim | Hedef | Durum | Planlanan kanıt |
+| ID | Gereksinim | Hedef | Durum | Doğrulama kanıtı |
 |---|---|---|---|---|
 | B1 | Birden çok ATM; her ATM'de tüm kurallar | v0.3.0 | Mevcut işlemlerde tamamlandı | Bir ATM'de işlem yapılırken diğer ATM ve ledger değişmiyor |
 | B2 | Yaşam döngüsü, işlem kısıtları, aynı kupürde doluluk önceliği | v0.3.0-v0.5.0 | Lifecycle, seçici doluluk önceliği ve müşteri çekimine bağlama tamamlandı | State testleri, fiziksel doluluk/rezerve stok ve eşitlik sırası testleri geçti |
@@ -31,7 +31,7 @@ Git teslim sınırı: v0.8.0 commit c87f61e GitHub'a gönderildi. B9 dahil önce
 | B7 | Tanınmayanları iade; recycling/deposit taşması; ayrıntılı yanıt | v0.6.0 | Tamamlandı | 12 yeni unit vakası +6 gerçek DB yatırma testi; Postman 8/19 |
 | B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | Tamamlandı; yedi hareket türü ve aynı snapshot'ta fiziksel/rezerve replay | Tüm türler tek akışta; kontrollü physical/reserved drift ve eksik bakiye satırı, araya deposit commit girmesi, rollback, mevcut UPDATE/DELETE/TRUNCATE red testleri |
 | B9 | TRY >1.000 farkta başka X-User onayı, hizmete dönüş engeli, kur tablosu | v0.8.0 | Tamamlandı, c87f61e gönderildi | 1000/1100 ve fractional eşik, mutlak FX farkı/snapshot, canonical farklı kullanıcı, pending state/count, concurrency/replay/restart, rollback ve legacy migration |
-| B10 | Ayrıntılı operasyon raporu, düşük nakit alarmı, transaction outbox, worker | v0.9.0 | Yerelde tamamlandı ve doğrulandı; henüz gönderilmedi | 11 unit +9 gerçek DB: FX snapshot raporu, tüm cash yolları, insert rollback, retry/restart/hosted log/sent, parallel claims, cancellation ve publish-sent crash penceresi |
+| B10 | Ayrıntılı operasyon raporu, düşük nakit alarmı, transaction outbox, worker | v0.9.0 | Tamamlandı, b403528 gönderildi | 11 unit +9 gerçek DB: FX snapshot raporu, tüm cash yolları, insert rollback, retry/restart/hosted log/sent, parallel claims, cancellation ve publish-sent crash penceresi; v1.0.0 tam koşuda tekrar geçti |
 
 ## B3 zorunlu kabul testleri
 
@@ -55,13 +55,13 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 | ASP.NET Core REST API, DI | v0.2.0 | Tamamlandı; ATM yönetimi ve çekim endpointleri DI ile çalışıyor |
 | EF Core code-first ve migration | v0.2.0-v0.9.0 | Altı migration: şema, ATM nakit modeli, quote/idempotency, mutabakat geçmişi, onay/kur, outbox; otomatik uygulama ve model/snapshot eşleşmesi doğrulandı |
 | SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL 17 Compose ve Testcontainers üzerinde çalışıyor |
-| API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Altyapı için temiz açılış ve tekrar açılış doğrulandı; final kapsamı yeniden doğrulanacak |
+| API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Final temiz kaynak/boş volume açılışı geçti; altı migration otomatik, health hazır. Container down/up sonrası sayımlar aynı ve migration tekrar çalışmadı |
 | Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; mevcut ATM/çekim işlemlerinde domain hata kodları ve health testleri hazır |
-| B3 unit testleri | v0.4.0 | 8/8 geçti; v0.9.0 tam koşuda 106/106 unit başarılı |
-| En az bir gerçek DB entegrasyon testi | v0.2.0-v0.9.0 | Tam koşuda 63/63 PostgreSQL testi başarılı; ayrıntı WORKLOG |
-| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v0.7.0-v0.9.0/v1.0.0 | Tamamlandı: B9/B10 kontrolleriyle EndToEnd 23/60 ve altyapı 4/8 geçti. baseUrl collection değişkeni; environment gerekmez. Önceki ATM 9/18, çekim+yatırma 16/37, yatırma 8/19 korundu; final teslimde yeniden doğrulanacak |
-| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.9.0 için güncel; final teslimde tekrar incelenecek |
+| B3 unit testleri | v0.4.0/v1.0.0 | 8/8 geçti; v1.0.0 Release koşusunda 106/106 unit başarılı, sıfır atlanan |
+| En az bir gerçek DB entegrasyon testi | v0.2.0-v1.0.0 | v1.0.0 Release koşusunda 63/63 PostgreSQL testi başarılı, sıfır atlanan; ayrıntı WORKLOG |
+| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v0.7.0-v1.0.0 | Final temiz kurulumda beşi de geçti: EndToEnd 23/60, Infrastructure 4/8, AtmSetup 9/18, Withdrawals 16/37, Deposits 8/19. baseUrl collection değişkeni; ayrı environment gerekmez |
+| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | https://github.com/berkehandaglayan/FimpleCaseStudy — işlevsel kapsam b403528 ile gönderildi; v1.0.0 sürüm/belge commit'i bekliyor |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | Beş zorunlu bölüm incelendi ve final kanıtlarıyla güncellendi; bu belge değişiklikleri yerelde |
 
 ## Kullanıcının ek istekleri
 

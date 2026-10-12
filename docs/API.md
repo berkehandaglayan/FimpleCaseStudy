@@ -1,4 +1,4 @@
-# API sözleşmesi - v0.9.0
+# API sözleşmesi - v1.0.0
 
 Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri string ve büyük harflidir; durumlarda alt çizgi kullanılır (`IN_SERVICE`). Numeric enum, tanımsız enum ve bozuk JSON 400 ProblemDetails döndürür.
 
