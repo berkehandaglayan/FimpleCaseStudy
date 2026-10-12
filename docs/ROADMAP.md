@@ -18,7 +18,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Tamamlandı |
 | v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2 yaşam döngüsü, yükleme/boşaltma ve hareket kaydı temeli | Tamamlandı |
 | v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Tamamlandı (Domain; HTTP quote v0.5.0) |
-| v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Planlandı |
+| v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Tamamlandı |
 | v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Planlandı |
 | v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Planlandı |
 | v0.8.0 | İkinci kullanıcı onayı | B9, kur tablosu, eşik ve bakımda kalma kuralı | Planlandı |
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.3.0 dahil commit'ler GitHub'a gönderildi. v0.4.0 banknot seçimi tamamlandı; sıradaki geliştirme aşaması v0.5.0. Henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.5.0 güvenli para çekme uygulandı ve doğrulandı; sıradaki geliştirme aşaması v0.6.0. Sürümün Git gönderim durumu commit geçmişi ve WORKLOG üzerinden izlenir. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -70,15 +70,15 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.3.0 dahil comm
 
 ## v0.5.0 - Güvenli para çekme
 
-- [ ] Quote durumları, alternatifler, kaset bazlı rezervasyon ve `ExpiresAt`.
-- [ ] Confirm ve cancel; 60 saniye sonunda arka plan işiyle otomatik serbest bırakma.
-- [ ] İşlem anında expiry kontrolü; worker gecikse bile süresi dolmuş quote onaylanamaz.
-- [ ] Kalıcı idempotency kaydı; aynı anahtar/aynı istek aynı yanıt, farklı istek conflict.
-- [ ] TRY 20.000, USD/EUR 1.000 günlük kart limitleri; aktif rezervasyonlar dahil.
-- [ ] Kart için HMAC kimliği; plaintext kart bilgisi DB/loglarda yok.
-- [ ] Aynı ATM ve aynı kartın farklı ATM'lerdeki işlemlerinde transaction/lock stratejisi.
-- [ ] Gerçek DB üzerinde paralel quote ve paralel confirm testleri.
-- [ ] Confirm-expiry yarışı ve iptal sonrası stok/limit geri kazanımı.
+- [x] Quote durumları, alternatifler, kaset bazlı rezervasyon ve `ExpiresAt`.
+- [x] Confirm ve cancel; 60 saniye sonunda arka plan işiyle otomatik serbest bırakma.
+- [x] İşlem anında expiry kontrolü; worker gecikse bile süresi dolmuş quote onaylanamaz.
+- [x] Kalıcı idempotency kaydı; aynı anahtar/aynı istek aynı yanıt, farklı istek conflict.
+- [x] TRY 20.000, USD/EUR 1.000 günlük kart limitleri; aktif rezervasyonlar dahil.
+- [x] Kart için HMAC kimliği; plaintext kart bilgisi DB/loglarda yok.
+- [x] Aynı ATM ve aynı kartın farklı ATM'lerdeki işlemlerinde transaction/lock stratejisi.
+- [x] Gerçek DB üzerinde paralel quote ve paralel confirm testleri.
+- [x] Confirm-expiry yarışı ve iptal sonrası stok/limit geri kazanımı.
 
 ## v0.6.0 - Para yatırma
 

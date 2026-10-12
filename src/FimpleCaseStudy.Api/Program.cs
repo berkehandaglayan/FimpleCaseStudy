@@ -15,6 +15,9 @@ var connectionString = builder.Configuration.GetConnectionString("Database")
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddSingleton(new CardIdentity(builder.Configuration["Withdrawals:HmacKey"]
+    ?? throw new InvalidOperationException("Withdrawals:HmacKey is required.")));
+builder.Services.AddHostedService<QuoteExpiryWorker>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false)));
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
@@ -50,7 +53,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.MapGet("/api/info", () => Results.Ok(new
 {
     name = "ATM Cash Management API",
-    version = "0.4.0"
+    version = "0.5.0"
 })).WithName("GetApiInfo").WithTags("System");
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -78,6 +81,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 });
 
 app.MapAtmEndpoints();
+app.MapWithdrawalEndpoints();
 app.Run();
 
 public partial class Program;

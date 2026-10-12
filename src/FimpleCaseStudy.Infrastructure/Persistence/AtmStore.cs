@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FimpleCaseStudy.Infrastructure.Persistence;
 
-internal sealed class AtmStore(CashManagementDbContext db) : IAtmStore
+internal sealed class AtmStore(CashManagementDbContext db, WithdrawalService withdrawals) : IAtmStore
 {
     public async Task<Atm> CreateAsync(Atm atm, CancellationToken cancellationToken)
     {
@@ -26,6 +26,7 @@ internal sealed class AtmStore(CashManagementDbContext db) : IAtmStore
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await CashTransactionGate.AcquireAsync(db, cancellationToken);
         // All changes to an ATM use the same parent-row lock, including state changes.
         var atm = await db.Atms.FromSqlInterpolated(
             $"SELECT * FROM cash.atms WHERE \"Id\" = {id} FOR UPDATE")
@@ -35,6 +36,8 @@ internal sealed class AtmStore(CashManagementDbContext db) : IAtmStore
             .LoadAsync(cancellationToken);
 
         db.Movements.AddRange(mutate(atm));
+        if (atm.State == AtmState.Maintenance)
+            await withdrawals.CancelAtmInsideAsync(id, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return atm;

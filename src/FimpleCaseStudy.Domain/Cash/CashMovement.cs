@@ -4,7 +4,7 @@ public sealed class CashMovement
 {
     private CashMovement() { }
     internal CashMovement(Guid atmId, Guid cassetteId, CashLine line, int physicalDelta,
-        MovementType type, Guid operationId, DateTimeOffset occurredAt, string actor)
+        MovementType type, Guid operationId, DateTimeOffset occurredAt, string actor, int reservedDelta = 0)
     {
         Id = Guid.NewGuid();
         AtmId = atmId;
@@ -12,6 +12,7 @@ public sealed class CashMovement
         Currency = line.Currency;
         Denomination = line.Denomination;
         PhysicalDelta = physicalDelta;
+        ReservedDelta = reservedDelta;
         Type = type;
         OperationId = operationId;
         OccurredAt = occurredAt;

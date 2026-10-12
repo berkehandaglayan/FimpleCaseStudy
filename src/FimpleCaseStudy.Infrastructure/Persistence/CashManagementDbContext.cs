@@ -8,6 +8,8 @@ public sealed class CashManagementDbContext(DbContextOptions<CashManagementDbCon
 {
     public DbSet<Atm> Atms => Set<Atm>();
     public DbSet<CashMovement> Movements => Set<CashMovement>();
+    public DbSet<WithdrawalQuote> WithdrawalQuotes => Set<WithdrawalQuote>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

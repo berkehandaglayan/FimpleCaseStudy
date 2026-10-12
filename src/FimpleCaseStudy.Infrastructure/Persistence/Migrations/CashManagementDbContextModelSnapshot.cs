@@ -174,6 +174,104 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.IdempotencyRecord", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("idempotency_records", "cash");
+                });
+
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.WithdrawalQuote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AtmId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CardHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ConfirmedAmount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LimitReservation")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OptionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReservationsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SelectedOption")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtmId");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("CardHash", "Currency", "ConfirmedAt");
+
+                    b.ToTable("withdrawal_quotes", "cash", t =>
+                        {
+                            t.HasCheckConstraint("ck_quote_amounts", "\"LimitReservation\" > 0 AND \"ConfirmedAmount\" >= 0");
+
+                            t.HasCheckConstraint("ck_quote_confirmation", "(\"Status\" = 'Confirmed' AND \"ConfirmedAt\" IS NOT NULL AND \"ConfirmedAmount\" > 0 AND \"SelectedOption\" IS NOT NULL) OR (\"Status\" <> 'Confirmed' AND \"ConfirmedAt\" IS NULL AND \"ConfirmedAmount\" = 0 AND \"SelectedOption\" IS NULL)");
+
+                            t.HasCheckConstraint("ck_quote_currency", "\"Currency\" IN ('TRY','USD','EUR')");
+
+                            t.HasCheckConstraint("ck_quote_expiration", "\"ExpiresAt\" = \"CreatedAt\" + interval '60 seconds'");
+
+                            t.HasCheckConstraint("ck_quote_status", "\"Status\" IN ('Open','Confirmed','Cancelled','Expired')");
+                        });
+                });
+
             modelBuilder.Entity("FimpleCaseStudy.Domain.Cash.CashMovement", b =>
                 {
                     b.HasOne("FimpleCaseStudy.Domain.Cash.Cassette", null)
@@ -198,6 +296,15 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.HasOne("FimpleCaseStudy.Domain.Cash.Cassette", null)
                         .WithMany("Balances")
                         .HasForeignKey("CassetteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.WithdrawalQuote", b =>
+                {
+                    b.HasOne("FimpleCaseStudy.Domain.Cash.Atm", null)
+                        .WithMany()
+                        .HasForeignKey("AtmId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

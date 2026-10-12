@@ -18,4 +18,5 @@ public sealed class CassetteBalance
     public int Available => OnHand - Reserved;
 
     internal void ChangePhysicalCount(int delta) => OnHand = checked(OnHand + delta);
+    internal void ChangeReservation(int delta) => Reserved = checked(Reserved + delta);
 }

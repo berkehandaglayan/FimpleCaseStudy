@@ -11,8 +11,8 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | A6 | 1-2 recycling kaseti döviz için | v0.3.0 | Tamamlandı | 0/3/4 red, 1/2 kabul unit testleri |
 | A7 | Hizmete alınmadan konfigürasyon ve elle yüklenen nakit kaydı | v0.3.0 | Tamamlandı | Unit, gerçek DB lifecycle ve Postman setup akışı |
 | A8 | Fiziksel sayım ve sistem farkının kaydı | v0.7.0 | Planlandı | Mutabakat hareketi testi |
-| A9 | Çekim banknot kırılımı; tam ödenemiyorsa yakın tutar | v0.4.0 | Domain hesabı tamam; HTTP quote v0.5.0 | B3 kabul testleri geçti |
-| A10 | Müşteri onayından sonra çekim | v0.5.0 | Planlandı | Quote fiziksel bakiyeyi değiştirmez, confirm değiştirir |
+| A9 | Çekim banknot kırılımı; tam ödenemiyorsa yakın tutar | v0.4.0-v0.5.0 | Tamamlandı; HTTP quote alternatifleri ve confirm bağlı | B3 unit + gerçek DB alternatif/rezervasyon testi |
+| A10 | Müşteri onayından sonra çekim | v0.5.0 | Tamamlandı | Quote fiziksel bakiyeyi değiştirmiyor; lower confirm yalnızca seçilen planı tüketiyor |
 | A11 | Yatırmada eşleşen recycling, diğerleri deposit | v0.6.0 | Planlandı | Yönlendirme testleri |
 | A12 | ATM banknot adedi ve toplam bakiye görüntüleme | v0.7.0 | Planlandı | Rapor doğrulaması |
 
@@ -21,13 +21,13 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | ID | Gereksinim | Hedef | Durum | Planlanan kanıt |
 |---|---|---|---|---|
 | B1 | Birden çok ATM; her ATM'de tüm kurallar | v0.3.0 | Mevcut işlemlerde tamamlandı | Bir ATM'de işlem yapılırken diğer ATM ve ledger değişmiyor |
-| B2 | Yaşam döngüsü, işlem kısıtları, aynı kupürde doluluk önceliği | v0.3.0-v0.4.0 | Lifecycle ve seçicide doluluk önceliği tamam; müşteri işlemlerine bağlama v0.5.0 | State testleri, fiziksel doluluk/rezerve stok ve eşitlik sırası testleri geçti |
+| B2 | Yaşam döngüsü, işlem kısıtları, aynı kupürde doluluk önceliği | v0.3.0-v0.5.0 | Lifecycle, seçici doluluk önceliği ve müşteri çekimine bağlama tamamlandı | State testleri, fiziksel doluluk/rezerve stok ve eşitlik sırası testleri geçti |
 | B3 | Sınırlı stokta en az banknot; en yakın alt/üst, üstte limit kontrolü | v0.4.0 | Saf algoritma tamamlandı | Sekiz kabul testi + sınır testleri + 300 bağımsız exhaustive karşılaştırma |
-| B4 | 60 saniye rezervasyon, cancel/confirm, expiry, Idempotency-Key | v0.5.0 | Planlandı | Tekrar, iptal, süre ve yarış testleri |
-| B5 | Kart/para bazında günlük limit; aktif rezervasyon dahil; plaintext kart yok | v0.5.0 | Planlandı | Limit ve kayıt/log denetimi |
-| B6 | Paralel quote'larda çifte rezervasyon yok | v0.5.0 | Planlandı | Gerçek DB ile paralel HTTP istekleri |
+| B4 | 60 saniye rezervasyon, cancel/confirm, expiry, Idempotency-Key | v0.5.0 | Tamamlandı | 59/60 sınırı, hosted worker, cancel, paralel confirm, restart sonrası byte replay ve rollback |
+| B5 | Kart/para bazında günlük limit; aktif rezervasyon dahil; plaintext kart yok | v0.5.0 | Tamamlandı | TRY/USD/EUR farklı ATM paralel limit; İstanbul gece yarısı; HMAC DB ve yakalanmış log denetimi |
+| B6 | Paralel quote'larda çifte rezervasyon yok | v0.5.0 | Tamamlandı | Gerçek PostgreSQL'de 8 paralel quote: tek başarılı rezervasyon; paralel confirm tek nakit çıkışı |
 | B7 | Tanınmayanları iade; recycling/deposit taşması; ayrıntılı yanıt | v0.6.0 | Planlandı | Kısmi kabul, taşma ve iade testleri |
-| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | LOAD/UNLOAD temeli, EF/DB append-only koruması hazır; diğer türler ve endpoint bekliyor | Ledger toplamı, rollback, UPDATE/DELETE/TRUNCATE red testleri |
+| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | LOAD/UNLOAD/RESERVATION/RESERVATION_RELEASE/WITHDRAWAL, EF/DB append-only hazır; deposit/mutabakat ve consistency endpoint bekliyor | Ledger toplamı, rollback, UPDATE/DELETE/TRUNCATE red testleri |
 | B9 | TRY >1.000 farkta başka X-User onayı, hizmete dönüş engeli, kur tablosu | v0.8.0 | Planlandı | Eşik ve ikinci kullanıcı testleri |
 | B10 | Ayrıntılı operasyon raporu, düşük nakit alarmı, transaction outbox, worker | v0.9.0 | Planlandı | Rapor, eşik geçişi, rollback, outbox işleme |
 
@@ -50,16 +50,16 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 
 | Gereksinim | Hedef | Durum |
 |---|---|---|
-| ASP.NET Core REST API, DI | v0.2.0 | Altyapı tamamlandı; iş endpointleri sonraki aşamada |
-| EF Core code-first ve migration | v0.2.0 | DbContext + ilk schema migration ve otomatik uygulama doğrulandı |
+| ASP.NET Core REST API, DI | v0.2.0 | Tamamlandı; ATM yönetimi ve çekim endpointleri DI ile çalışıyor |
+| EF Core code-first ve migration | v0.2.0 | Üç migration: şema, ATM nakit modeli, quote/idempotency; başlangıçta otomatik uygulama doğrulandı |
 | SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL 17 Compose ve Testcontainers üzerinde çalışıyor |
 | API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Altyapı için temiz açılış ve tekrar açılış doğrulandı; final kapsamı yeniden doğrulanacak |
-| Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; domain hata kodları sonraki aşamalarda eklenecek |
-| B3 unit testleri | v0.4.0 | 8/8 geçti; toplam 45 unit test başarılı |
-| En az bir gerçek DB entegrasyon testi | v0.2.0/v0.5.0 | 12 entegrasyon testi geçti; paralel load var, quote concurrency kanıtı B6 ile eklenecek |
-| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı (4/8) ve ATM yönetimi (9/18) geçti; tam çekim/yatırma/mutabakat akışı henüz yok |
+| Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; mevcut ATM/çekim işlemlerinde domain hata kodları ve health testleri hazır |
+| B3 unit testleri | v0.4.0 | 8/8 geçti; toplam 48 unit test başarılı |
+| En az bir gerçek DB entegrasyon testi | v0.2.0/v0.5.0 | 32 gerçek PostgreSQL entegrasyon testi geçti; paralel load/quote/confirm ve farklı ATM kart limiti doğrulandı |
+| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı (4/8), ATM yönetimi (9/18) ve çekim (15/32) geçti; yatırma/mutabakat tam akışı henüz yok |
 | Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.4.0 için güncel; final kapsamda tekrar güncellenecek |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.5.0 için güncel; final kapsamda tekrar güncellenecek |
 
 ## Kullanıcının ek istekleri
 

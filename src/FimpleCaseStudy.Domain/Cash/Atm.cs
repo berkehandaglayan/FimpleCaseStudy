@@ -63,6 +63,61 @@ public sealed class Atm
         State = target;
     }
 
+    public IReadOnlyList<CashMovement> ChangeWithdrawalCash(Currency currency,
+        IReadOnlyList<DispenseLine> reservations, DispensePlan? withdrawal,
+        bool release, Guid operationId, DateTimeOffset now)
+    {
+        var movements = new List<CashMovement>();
+        Banknotes.Validate(currency, 20);
+        if (!release || withdrawal is not null) RequireState(AtmState.InService);
+        if (operationId == Guid.Empty || reservations is null || reservations.Count is < 1 or > 4 ||
+            reservations.Any(l => l is null) || reservations.Select(l => l.CassetteId).Distinct().Count() != reservations.Count ||
+            (withdrawal is not null && !release))
+            throw new DomainException("INVALID_RESERVATION", "Provide distinct recycling reservation lines.");
+        foreach (var line in reservations)
+        {
+            var cassette = _cassettes.SingleOrDefault(c => c.Id == line.CassetteId);
+            var balance = cassette?.Balances.SingleOrDefault(b => b.Currency == currency && b.Denomination == line.Denomination);
+            if (cassette is null || cassette.Kind != CassetteKind.Recycling || cassette.Slot != line.Slot ||
+                cassette.Currency != currency || cassette.Denomination != line.Denomination || balance is null ||
+                line.Count <= 0 || (release ? balance.Reserved : balance.Available) < line.Count)
+                throw new DomainException("INVALID_RESERVATION", "Reservation does not match available cash.", ErrorKind.Conflict);
+        }
+        if (withdrawal is not null)
+        {
+            if (withdrawal.Lines is null || withdrawal.Lines.Count is < 1 or > 4 || withdrawal.Lines.Any(l => l is null) ||
+                withdrawal.Lines.Select(l => l.CassetteId).Distinct().Count() != withdrawal.Lines.Count ||
+                withdrawal.Amount <= 0 || withdrawal.Lines.Sum(l => (long)l.Denomination * l.Count) != withdrawal.Amount)
+                throw new DomainException("INVALID_WITHDRAWAL_PLAN", "Invalid withdrawal plan.");
+            foreach (var line in withdrawal.Lines)
+            {
+                var reservation = reservations.SingleOrDefault(r => r.CassetteId == line.CassetteId);
+                if (reservation is null || line.Count <= 0 || line.Count > reservation.Count ||
+                    line.Slot != reservation.Slot || line.Denomination != reservation.Denomination)
+                    throw new DomainException("INVALID_WITHDRAWAL_PLAN", "Withdrawal must be covered by the reservation.");
+            }
+        }
+        foreach (var line in reservations)
+        {
+            var cassette = _cassettes.Single(c => c.Id == line.CassetteId);
+            var balance = cassette.Balances.Single(b => b.Currency == currency && b.Denomination == line.Denomination);
+            var delta = release ? -line.Count : line.Count;
+            balance.ChangeReservation(delta);
+            movements.Add(new CashMovement(Id, cassette.Id, new CashLine(line.Slot, currency, line.Denomination, line.Count),
+                0, release ? MovementType.ReservationRelease : MovementType.Reservation, operationId, now, "system", delta));
+        }
+        if (withdrawal is not null)
+            foreach (var line in withdrawal.Lines)
+            {
+                var cassette = _cassettes.Single(c => c.Id == line.CassetteId);
+                var cashLine = new CashLine(line.Slot, currency, line.Denomination, line.Count);
+                cassette.ChangePhysicalCount(cashLine, -line.Count);
+                movements.Add(new CashMovement(Id, cassette.Id, cashLine, -line.Count,
+                    MovementType.Withdrawal, operationId, now, "system"));
+            }
+        return movements;
+    }
+
     private IReadOnlyList<CashMovement> ChangeCash(
         IReadOnlyList<CashLine>? lines, string actor, DateTimeOffset now, bool loading)
     {

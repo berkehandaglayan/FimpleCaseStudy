@@ -1,4 +1,4 @@
-# API sözleşmesi - v0.3.0
+# API sözleşmesi - v0.5.0
 
 Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri string ve büyük harflidir; durumlarda alt çizgi kullanılır (`IN_SERVICE`). Numeric enum, tanımsız enum ve bozuk JSON 400 ProblemDetails döndürür.
 
@@ -69,4 +69,39 @@ ProblemDetails içinde `status`, `title`, `detail`, `instance`, `code`, `traceId
 
 Örnek kodlar: `ATM_NOT_FOUND`, `INVALID_ATM_NAME`, `INVALID_CASSETTE_CONFIGURATION`, `INVALID_FOREIGN_CASSETTE_COUNT`, `UNSUPPORTED_CURRENCY`, `UNSUPPORTED_DENOMINATION`, `INVALID_ATM_STATE`, `INVALID_STATE_TRANSITION`, `CASSETTE_NOT_EMPTY`, `CASSETTE_NOTE_MISMATCH`, `CASSETTE_CAPACITY_EXCEEDED`, `INSUFFICIENT_CASH`, `DUPLICATE_CASH_LINE`, `INITIAL_RECYCLING_CASH_REQUIRED`.
 
-Çekim, quote, müşteri yatırması, mutabakat ve rapor endpoint'leri henüz yok. `/load` müşteri yatırma işlemi değildir; operatörün elle yaptığı yüklemeyi kaydeder.
+Quote ve çekim endpoint'leri aşağıdaki bölümde yer alır. Müşteri yatırması, mutabakat ve rapor endpoint'leri henüz yok. `/load` operatörün elle yaptığı yüklemeyi kaydeder.
+
+## Para çekme
+
+Yol öneki `/api/atms/{atmId}/withdrawals`:
+
+| Metot | Yol sonu | Sonuç |
+|---|---|---|
+| POST | `/quotes` | 201; fiziksel nakdi değiştirmeden 60 saniye rezervasyon |
+| GET | `/quotes/{quoteId}` | 200; expiry temizliği sonrası kalıcı quote görünümü |
+| POST | `/quotes/{quoteId}/confirm` | 200; seçilen planı tüketir ve bütün rezervasyonu bırakır |
+| POST | `/quotes/{quoteId}/cancel` | 200; nakit tüketmeden stok ve limit rezervasyonunu bırakır |
+
+Quote örneği (yalnızca sentetik kart):
+
+```json
+{"cardNumber":"9900000000000050","currency":"TRY","amount":130}
+```
+
+Kart 12-19 ASCII rakam olmalıdır; boşluk/ayraç kabul edilmez. Tutar pozitif integer tam para birimi cinsindendir. İstenen tutar kalan günlük limiti aşıyorsa 409 `DAILY_LIMIT_EXCEEDED`; pozitif ödenebilir seçenek yoksa 409 `INSUFFICIENT_CASH` döner. ATM `IN_SERVICE` olmalıdır. Quote yanıtı `id`, `atmId`, `currency`, `status`, `createdAt`, `expiresAt`, `options`, `selectedOption` içerir. `options` elemanında `name` (`exact`, `lower`, `upper`) ve `plan` (`amount`, `noteCount`, `lines`) bulunur. Her satır `cassetteId`, `slot`, `denomination`, `count` taşır. Tam tutar varsa yalnızca exact sunulur. Quote durumları string olarak `OPEN`, `CONFIRMED`, `CANCELLED`, `EXPIRED` döner; seçenek isimleri küçük harfe duyarlıdır.
+
+Confirm gövdesi ve zorunlu header:
+
+```http
+Idempotency-Key: client-operation-unique-key
+```
+
+```json
+{"option":"lower"}
+```
+
+Key 1-128 ASCII görünür karakter olmalıdır; boşluk kabul edilmez. Kapsam bütün API'nin confirm işlemleridir: ATM, quote ve option birlikte istek parmak izini belirler. JSON property sırası/boşlukları anlamı değiştirmez; deserialize edilen option değeri karşılaştırılır. Aynı key ve aynı istek saklanan status/body'yi byte olarak aynen döndürür. Aynı key başka ATM/quote/option için 409 `IDEMPOTENCY_CONFLICT` verir. Başarılı replay, expiry/cancel/bakım veya API restart sonrasında da orijinal sonucu döndürür; ikinci kez nakit çıkarmaz. Farklı key ile aynı confirmed quote 409 `QUOTE_CONFIRMED` döner.
+
+Geçerli key ile işlenen confirm'in 200, 400 `INVALID_QUOTE_OPTION`, 404 `QUOTE_NOT_FOUND`, 409 terminal durum ve limit hataları kalıcıdır. Retry'da hata sonucu da aynı kalır; düzeltilecek istek için yeni key kullanılmalıdır. Hatalı JSON/eksik veya geçersiz key gibi işlem öncesi doğrulama hataları ve transaction'ı geri alınan beklenmeyen 500 saklanmaz. Böyle bir 500 sonrasında aynı key ile yeniden denemek mümkündür. Idempotency kayıtlarının otomatik silinmesi yoktur. Kalıcı ProblemDetails `code`, `instance`, `traceId` içerir; replay ilk işleme ait traceId'yi korur.
+
+Confirm geçerliliği `now < expiresAt` şeklindedir. Tam 60 saniye sonunda worker gecikse bile confirm 409 `QUOTE_EXPIRED` alır. Cancel tekrarında CANCELLED/EXPIRED görünümü 200 döner; CONFIRMED için 409 alınır. Bakım geçişi açık quote'ları ve rezervasyonlarını aynı transaction'da iptal eder. İş günü Europe/Istanbul, zaman damgaları UTC'dir. Açık quote gece yarısından sonra da yeni günün limitinden yer ayırır; confirm gününün limiti yeniden kontrol edilir.

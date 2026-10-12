@@ -14,7 +14,7 @@ Makinede .NET SDK 10.0.400 doğrulandı. global.json minimum 10.0.100 + latestFe
 
 ## ADR-002 - Nakit modeli ve stok boyutları
 
-Durum: v0.3.0 Atm, Cassette, CassetteBalance ve CashMovement uygulandı; diğer modeller planlandı.
+Durum: v0.3.0 Atm, Cassette, CassetteBalance ve CashMovement; v0.5.0 WithdrawalQuote ve IdempotencyRecord uygulandı.
 
 Model adayları: Atm, Cassette, CassetteBalance, CashMovement, WithdrawalQuote, QuoteOption, ReservationLine, CardDailyUsage, IdempotencyRecord, Reconciliation, ReconciliationLine, ExchangeRate, OutboxMessage. Bunlar kesin migration/tablo listesi değildir.
 
@@ -26,7 +26,7 @@ Banknot tutarları integer/minor unit veya kesin ondalık temsil ile işlenir; k
 
 ## ADR-003 - Optimal banknot seçimi
 
-Durum: v0.4.0 saf Domain seçicisi uygulandı; sekiz B3 kabul testi geçti. HTTP quote akışına bağlanması v0.5.0 kapsamındadır.
+Durum: v0.4.0 saf Domain seçicisi ve sekiz B3 kabul testi; v0.5.0 HTTP quote/confirm akışına bağlama uygulandı.
 
 Sınırlı stoklu dinamik programlama ile ulaşılabilir tutarların minimum banknot sayısı ve çözümün geri kurulması hesaplanır. Greedy yaklaşım B3 test 1 gibi örnekleri kaçırır. Problem boyutu toplam kullanılabilir stok ve geçerli limitlerle sınırlandırılacak; kullanıcının istediği sınırsız büyüklükte bir tutara göre bellek ayrılmayacak.
 
@@ -42,51 +42,57 @@ Kaset dağıtımı aynı kupürde fiziksel OnHand azalan, eşitlikte slot artan 
 
 ## ADR-004 - Alt/üst seçenekler için rezervasyon
 
-Durum: Önerilen varsayım; kodlanmadan örnek ve testlerle kesinleştirilecek.
+Durum: v0.5.0 uygulandı; alt/üst kaset maksimumu ve seçilmeyen stoğun serbest bırakılması gerçek DB testleriyle doğrulandı. Alternatiflerin paylaşımı kaynakta açıklanmadığı için aşağıdaki kural tasarım varsayımıdır.
 
 PDF iki seçeneği de sunmayı ve sunulan banknotları rezerve etmeyi ister; alternatifler arasında ortak banknotun nasıl sayılacağını belirtmez.
 
-Öneri: İki alternatifin kaset bazlı planını üret; her kasette alternatiflerin gerektirdiği adetlerin maksimumunu ayır. Aynı quote içindeki ortak banknotlar paylaşılabilir, çünkü yalnızca bir alternatif onaylanabilir. Başka bir quote bu ayrılmış stoğu kullanamaz. Örneğin alt seçenek 100 x 1, üst seçenek 100 x 1 + 20 x 1 ise toplamda 100 x 1 ve 20 x 1 rezerve edilir.
+Uygulama: İki alternatifin kaset bazlı planı üretilir; her kasette alternatiflerin gerektirdiği adetlerin maksimumu ayrılır. Aynı quote içindeki ortak banknotlar paylaşılabilir, çünkü yalnızca bir alternatif onaylanabilir. Başka bir quote bu ayrılmış stoğu kullanamaz. Örneğin alt seçenek 100 x 1, üst seçenek 100 x 1 + 20 x 1 ise toplamda 100 x 1 ve 20 x 1 rezerve edilir.
 
 Bir seçenekte olup diğerinde olmayan kupürler birlikte tutulduğundan fiziksel rezervasyonun toplam değeri en yüksek seçenek tutarından büyük olabilir. Günlük limit ise gerçekleşebilecek en yüksek seçenek tutarını sayar. Onay seçilen planı tüketir ve quote'un bütün rezervasyonunu bırakır; iptal/expiry hiçbir nakit tüketmeden rezervasyonu bırakır.
 
-Alt seçenek 0 ise müşteriye 0 tutarlı çekim önerilmez. Ödenebilir pozitif seçenek yoksa quote katmanının hata döndürmesi planlandı. v0.4.0'da limit üstü ilk isteğin DAILY_LIMIT_EXCEEDED ile reddedilmesi seçildi; sessizce limit içine küçültülmez. Bu ek tasarım varsayımıdır. Seçici kalan limiti parametre alır; kartın günlük kullanımı ve aktif quote yükümlülüğünü DB'den hesaplamak v0.5.0 işidir. Seçici tek başına B5'i uygulamaz.
+Alt seçenek 0 ise müşteriye 0 tutarlı çekim önerilmez. Ödenebilir pozitif seçenek yoksa quote katmanı INSUFFICIENT_CASH döndürür. v0.4.0'da limit üstü ilk isteğin DAILY_LIMIT_EXCEEDED ile reddedilmesi seçildi; sessizce limit içine küçültülmez. Bu ek tasarım varsayımıdır. Seçici kalan limiti parametre alır; v0.5.0 servis kartın günlük kullanımı ve aktif quote yükümlülüğünü DB'den hesaplar. Seçici tek başına B5'i uygulamaz.
 
 ## ADR-005 - Transaction ve eşzamanlılık
 
-Durum: v0.3.0 ATM yönetiminde transaction ve ATM satır kilidi uygulandı. Kart, quote ve idempotency kapsamı planlandı.
+Durum: v0.5.0 ortak transaction advisory gate ve ATM satır kilidi uygulandı; paralel quote/confirm, farklı ATM kart limitleri, lock beklerken expiry ve rollback gerçek PostgreSQL üzerinde doğrulandı.
 
-Mevcut AtmStore.UpdateAsync transaction başlatır, ATM satırını SELECT FOR UPDATE ile kilitler, kaset/bakiyeleri yükler, domain işlemini çalıştırır ve bakiye ile hareketleri birlikte kaydeder. Paralel yüklemelerde kapasitenin aşılmadığı gerçek PostgreSQL ile doğrulandı. Bu sonuç B6 quote/confirm eşzamanlılığı tamamlandı anlamına gelmez.
+v0.3.0 AtmStore.UpdateAsync transaction başlatıp ATM satırını SELECT FOR UPDATE ile kilitler, kaset/bakiyeleri yükler, domain işlemini çalıştırır ve bakiye ile hareketleri birlikte kaydederdi. O aşamada paralel load testi kapasiteyi doğruluyordu; B6 quote/confirm kanıtı değildi. v0.5.0 aşağıdaki ortak gate ve ayrıca gerçek DB müşteri işlem testlerini ekledi.
 
 Quote/confirm/cancel/expiry ve nakit değiştiren operasyonlar kısa DB transaction'ları kullanır. Bakiye, rezervasyon, günlük limit, hareket, idempotency sonucu ve gerektiğinde outbox aynı transaction sınırında tutarlı değişir.
 
-PostgreSQL satır kilitleri ile ATM işlemlerini sıralamak ve kart/para/gün limit satırını korumak planlandı. Yalnızca ATM kilidi yeterli değildir: aynı kart farklı ATM'lerde de limiti aşabilir. Tüm mutasyonlar ortak kilit sırası izlemeli. Yeni günlük limit satırının ilk kez oluşturulmasındaki yarış unique constraint/upsert ile ele alınmalı. İlgili işlemde kart/ATM/quote kilitleri ve worker sırası birlikte tasarlanıp gerçek DB testleriyle doğrulanacak.
+Önceki öneri kart/para/gün limit satırları ve birden çok satır kilidiydi. v0.5.0'da case-study kapsamı için daha basit ve denetlenebilir tercih yapıldı: bütün nakit mutasyonları önce `pg_advisory_xact_lock(507050)`, sonra ATM parent satırı `FOR UPDATE` alır. Worker, quote, confirm, cancel ve bakım aynı sırayı izler. ATM create nakit değiştirmediği için gate gerekmez. Aynı kart farklı ATM'lerde işlem yapsa da tek gate altında limit toplamı hesaplanır; ayrı CardDailyUsage sayacı ve ilk insert/upsert yarışı yoktur. Çok-instance güvenliği process lock'a dayanmaz. Başka bir uygulama veya SQL yazarı bu protokolü izlemiyorsa advisory kilit onu engellemez.
+
+Bu tercih bağımsız ATM mutasyonlarını da seri çalıştırır; yüksek trafik için kart bazlı kilit ve deterministik çoklu ATM sırasına geçmek gerekir. PostgreSQL komut timeout'u 15 saniyedir; aşırı yük altında timeout ve retry gerekebilir. Bütün expired quote'lar tek transaction'da yüklenip serbest bırakılır; batch/partition veya süre bütçesi uygulanmadı. Günlük kullanım aggregate SUM ile hesaplanır; büyük geçmişte indeksler yanında arşivleme veya atomik sayaç tasarımı gerekir. Bunlar uygulanmış ölçek optimizasyonları değildir.
 
 Kullanıcı onayı beklenirken transaction/kilit açık tutulmaz. Quote ve rezervasyon veritabanında kalıcıdır. Süre dolumu hem worker'da hem işlem anında kontrol edilir. Worker gecikmesi süresi dolmuş quote'u onaylanabilir yapmamalı; yeni quote kontrollerinde ilgili süresi dolmuş rezervasyonlar da temizlenmeli. Çoklu API instance'ında yalnızca process içi `lock` yeterli sayılmaz.
+
+Saat global gate alındıktan sonra TimeProvider'dan okunur; lock bekleyerek süresi dolan quote onaylanamaz. Bu an transaction kararlarının zaman referansıdır, HTTP yanıtının gönderildiği an değildir. İşlem önce ayrı commitli expiry temizliği yapar, ardından business transaction gate'ini alıp expiry'yi yeniden kontrol eder. İlk cleanup sonrası iki gate arasında yeni expiry olursa business validation conflict'inde de cleanup commit korunur; yeni nakit/quote mutasyonlarının domain doğrulaması tamamlanmadan değişiklik yapılmaz. Beklenmeyen DB hatası transaction'ı bütünüyle geri alır. ReservationRelease ve Withdrawal hareketleri ayrı yazılır; balance satırı EF tarafından son fiziksel/rezerve haliyle tek UPDATE alır, geçici constraint ihlali oluşmaz.
 
 Kaynaklar: [PostgreSQL explicit locking](https://www.postgresql.org/docs/17/explicit-locking.html), [EF Core transactions](https://learn.microsoft.com/en-us/ef/core/saving/transactions).
 
 ## ADR-006 - Idempotency
 
-Durum: Planlandı.
+Durum: v0.5.0 kalıcı confirm sonuçları uygulandı; aynı key paralel replay ve gerçek API restart sonrası byte eşitliği doğrulandı.
 
 Confirm'in `Idempotency-Key` değeri, istek parmak izi, HTTP sonucu ve yanıtı kalıcı kayıtta tutulur. Aynı anahtar/aynı istek aynı sonucu alır; farklı payload conflict olur. DB unique constraint paralel aynı anahtar yarışını korur. Quote durum geçişi, nakit hareketi ve tamamlanmış sonuç aynı transaction'da kaydedilir.
 
-Quote daha önce onaylanmış olsa bile başarılı aynı anahtar tekrarında saklanan sonuç döndürülür. Farklı anahtarla aynı quote'u tekrar onaylamak nakit çıkışına yol açamaz. Anahtar kapsamı ve hata yanıtlarının tekrar davranışı API sözleşmesinde netleştirilecek.
+Quote daha önce onaylanmış olsa bile başarılı aynı anahtar tekrarında saklanan sonuç döndürülür. Farklı anahtarla aynı quote'u tekrar onaylamak nakit çıkışına yol açamaz. Key bütün confirm endpoint'lerinde globaldir; fingerprint canonical DTO üzerinden ATM/quote/option SHA-256'sıdır. Key DB primary key'i ve ortak gate paralel yarışı korur. Quote/cancel için key zorunluluğu eklenmedi; bu kapsam confirm içindir.
+
+Geçerli key ile tamamlanan 200 ve işlenen 400/404/409 sonuçları JSON metni, HTTP status ve ilk traceId/instance ile süresiz saklanır. Yanlış option ve bulunamayan quote hataları da kalıcıdır; başka payload için yeni key gerekir. Hatalı JSON/key, çelişen mevcut key ve rollback edilen 500 ilk sonucu değiştirmez veya yeni kalıcı sonuç oluşturmaz. Transaction rollback sonrası aynı key tekrar denenebilir. HTTP tarih header'ının byte eşitliği iddia edilmez; status/body eşitliği doğrulanmıştır. Retention/temizlik politikası uygulanmadı.
 
 ## ADR-007 - Kart kimliği, zaman ve günlük limit
 
-Durum: Planlandı; gün sınırı bir varsayımdır.
+Durum: v0.5.0 HMAC, kart/para günlük limit ve İstanbul gün sınırı uygulandı; gün/gece yarısı yorumu tasarım varsayımıdır.
 
-Kart numarası normalize edilip uygulama sırrıyla HMAC kimliğine çevrilir. Veritabanına ve request loglarına plaintext kart numarası yazılmaz. HMAC anahtarı kaynak koddan ayrı configuration/secret olarak sağlanır. Bu case study'de gerçek kart verisi yerine sentetik test girdileri kullanılır.
+Kart numarası yalnızca 12-19 ASCII rakam olarak kabul edilir; boşluk/ayraç reddedilerek tek canonical girdi sağlanır. Uygulama sırrıyla HMAC-SHA256 kimliğine çevrilir. Veritabanına ve uygulama loglarına plaintext kart numarası yazılmaz. HMAC anahtarı en az 32 UTF-8 byte configuration/secret olarak sağlanır; uygulama yoksa/kısaysa başlangıçta hata verir. Compose ve `.env.example` içindeki değer açıkça geliştirme örneğidir. Tüm instance/restart'larda aynı sır gerekir; rotasyon kimlikleri değiştireceği için güvenli rotasyon/migration ayrı iştir. Bu case study'de gerçek kart verisi yerine sentetik test girdileri kullanılır.
 
-Limit bütün ATM ağı için kart + para birimi + gün bazında tutulur. Onaylanmış tutar + aktif quote yükümlülüğü limiti geçemez. Zaman damgaları UTC, iş günü `Europe/Istanbul` kabul edilir. Test edilebilir bir saat soyutlaması kullanılır; expiry testi için gerçekten 60 saniye beklenmez.
+Limit bütün ATM ağı için kart + para birimi + gün bazındadır: TRY 20.000; USD/EUR 1.000. Günlük tüketim ayrı mutable sayaç yerine aynı transaction'daki Confirmed quote'ların gün içindeki ConfirmedAmount toplamından türetilir. Kart/para için halen açık ve süresi dolmamış quote'ların en yüksek seçenek tutarı buna eklenir; fiziksel banknot rezervasyonu toplam değeri kullanılmaz. Zaman damgaları UTC, iş günü `Europe/Istanbul` kabul edilir. Test edilebilir TimeProvider ve worker'da bir saniyelik PeriodicTimer kullanılır; expiry testleri saati ilerletir, gerçekten 60 saniye beklemez.
 
-Gece yarısını geçen quote'un hangi güne yazılacağı açık karar konusudur: onay gününün limitini ayrıca kontrol etmek ile günü değişince quote'u geçersiz kılmak farklı sonuçlar verir. B4'ün 60 saniye geçerliliği korunarak kural kesinleştirilmeli ve README'ye eklenmeli.
+Önceki açık gece yarısı sorusu v0.5.0'da çözüldü: quote gece yarısında iptal edilmez; createdAt + tam 60 saniye korunur. Geçerli açık quote eski gün oluşturulsa da yeni günün limitinden yer ayırır; confirm anında yeni iş günü ve diğer rezervasyonlar yeniden kontrol edilir. Çekim confirm gününe yazılır. Böylece önceki günkü tamamlanmış tüketim yeni güne taşınmaz, açık rezervasyon da limit hesabından düşmez. İstanbul 23:59:40'ta 19.500 confirm +500 açık quote; ertesi gün +19.500 quote ve iki confirm toplam20.000 senaryosu doğrulandı. `now >= ExpiresAt` süresi dolmuştur; tam60 saniye reddedilir.
 
 ## ADR-008 - Değiştirilemez hareket defteri
 
-Durum: v0.3.0 LOAD/UNLOAD kayıtları ve append-only koruma uygulandı; diğer hareket üreticileri ve consistency endpoint planlandı.
+Durum: v0.3.0 LOAD/UNLOAD ve append-only koruma; v0.5.0 RESERVATION/RESERVATION_RELEASE/WITHDRAWAL uygulandı. Deposit/mutabakat hareket üreticileri ve consistency endpoint planlandı.
 
 Her hareket kaset, para birimi, kupür, fiziksel adet değişimi, rezervasyon adet değişimi, işlem tipi, ilişkilendirme kimliği ve zamanı taşır. Örneğin rezervasyonda fiziksel delta 0, rezerve delta +n; serbest bırakmada 0 ve -n. Çekimde fiziksel delta -n ve ayrılmış miktarın release hareketi ayrı izlenir; ikili sayım yapılmaz.
 
@@ -96,7 +102,7 @@ Consistency endpoint aynı tutarlı okuma görünümünde kayıtlı ve hesaplanm
 
 ## ADR-009 - Yaşam döngüsü ve bakım
 
-Durum: v0.3.0 temel yaşam döngüsü ve dolu kaseti yeniden yapılandırma engeli uygulandı. Quote iptali ve bekleyen mutabakat onayı korumaları planlandı.
+Durum: v0.3.0 temel yaşam döngüsü/dolu kaset koruması; v0.5.0 bakımda açık quote iptali uygulandı. Bekleyen mutabakat onayı koruması planlandı.
 
 PDF akışı: UNCONFIGURED -> CONFIGURED -> LOADED -> IN_SERVICE <-> MAINTENANCE. Configure/load/reconcile yalnızca izin verilen kurulum/bakım durumlarında; deposit/withdrawal yalnızca IN_SERVICE.
 
@@ -130,7 +136,7 @@ Outbox kaydı stok işlemiyle aynı DB transaction'ında oluşturulur. Hosted se
 
 ## ADR-013 - Test ve teslim kanıtı
 
-Durum: v0.3.0 saf domain testleri, Testcontainers PostgreSQL entegrasyonu ve Postman yönetim akışı uygulandı. B3 ve müşteri işlemleri testleri sonraki sürümlerde.
+Durum: v0.3.0 domain/gerçek DB/yönetim Postman, v0.4.0 B3 ve v0.5.0 müşteri çekimi/concurrency/replay/expiry testleri uygulandı. Güncel kanıt WORKLOG içindedir.
 
 Saf kurallar ve B3 unit testlerle; kilit/transaction/idempotency gerçek PostgreSQL entegrasyon testleriyle; kullanıcı akışı Postman collection ile doğrulanır. EF InMemory concurrency kanıtı olarak kullanılmaz. Otomatik entegrasyon testleri için test başına ayrı Testcontainers PostgreSQL, yerel API/Postman için Compose seçildi.
 
@@ -163,4 +169,12 @@ Durum: v0.3.0 uygulandı ve test edildi. Aşağıdaki slot ve ilk yükleme yorum
 - HTTP enum değerleri büyük harfli metindir; sayısal enum kabul edilmez. Hatalar ProblemDetails ve code/traceId içerir: doğrulama 400, bulunamayan ATM 404, iş kuralı çatışması 409. Beklenmeyen 500 hataları SQL ayrıntısını döndürmez.
 - X-User manuel nakit hareketinin aktörünü belirler; yoksa system kullanılır. Bu alan authentication sağlamaz. İşlem zamanları TimeProvider üzerinden UTC alınır. Listeleme limit/offset ile sınırlıdır.
 
-İstek/yanıt örnekleri ve endpoint listesi [API sözleşmesinde](API.md) bulunur. Rezervasyon alanları modelde hazır olsa da henüz rezervasyon üreten kullanım senaryosu yoktur.
+İstek/yanıt örnekleri ve endpoint listesi [API sözleşmesinde](API.md) bulunur. v0.3.0'da yalnızca hazır olan rezervasyon alanları v0.5.0 quote/confirm/cancel/expiry kullanım senaryolarıyla doldurulur.
+
+## ADR-016 - Quote planı ve limitin kalıcı temsili
+
+Durum: v0.5.0 uygulandı; DTO/domain sınırı ve restart replay testleriyle doğrulandı.
+
+v0.3.0 aday model listesinde ayrı QuoteOption, ReservationLine ve CardDailyUsage vardı. v0.5.0'da seçenekler ve kaset bazlı rezervasyon satırları immutable plan snapshot'ı olarak WithdrawalQuote üzerinde JSON text tutuldu. Bu seçenekler sonradan yeniden hesaplanmaz; confirm teklif edilen planı uygular. Süre/durum/tutar alanları sorgulanabilir ilişkisel kolonlardır. Kart/gün tüketimi ConfirmedAmount toplamı ve halen açık LimitReservation toplamından türetilir; ikinci bir mutable günlük sayaç ile quote verisi arasındaki tutarlılık riski azaltıldı.
+
+Gerekçe: küçük case-study kapsamındaki sabit dört recycling kaseti için daha az entity/join, anlaşılır migration ve replay'de değişmeyen snapshot. Tradeoff: JSON plan satırlarına DB foreign key/check uygulanmaz; doğru kaset/slot/para/kupür/adet ve planın rezervasyonla kapsanması domain'de iki aşamalı doğrulanır. Doğrudan DB JSON değişiklikleri güvenli yönetim arayüzü sayılmaz. Büyük tarihçede aggregate limit hesabı ve plan raporlama için ilişkisel satırlara/sayaçlara geçiş yeniden değerlendirilebilir. Bu bir performans benchmark sonucu değildir.

@@ -231,3 +231,72 @@ Doğrulamalar:
 | `git diff --check` | Başarılı |
 
 Kalan iş: v0.5.0'da bu seçici quote transaction'ına bağlanacak; kart limitinin DB hesabı, alternatif rezervasyonları, confirm/cancel/expiry, kalıcı idempotency ve paralel quote/confirm testleri eklenecek. Mevcut seçici tek başına gerçek para çekmez veya günlük kart kullanımını takip etmez. API sözleşmesi v0.3.0 yönetim endpoint'leriyle aynı kaldı. Bu aşama geliştirme sürümüdür; release/tag oluşturulmadı.
+
+## 2026-10-12 / 012 - Güvenli para çekme ve kalıcı işlem sonucu
+
+Hedef sürüm: v0.5.0, uygulandı ve doğrulandı. Kullanıcı GPT-6.1-Sol alt ajanla geliştirme ve ardından ana ajan incelemesi istedi. Commit/push bu aşamada yapılmadı; mevcut HEAD/uzak geçmiş değiştirilmedi. Release/tag yoktur.
+
+Değişen bileşenler ve gerekçeleri:
+
+- `Application/Withdrawals/WithdrawalContracts.cs`: quote/confirm DTO, seçenek/görünüm ve IWithdrawalService sınırı. API entity'leri doğrudan döndürmez.
+- `Domain/Cash/Atm.cs`, `CassetteBalance.cs`, `CashMovement.cs`: fiziksel/rezerve adetlerin ayrı mutasyonu; RESERVATION, RESERVATION_RELEASE ve WITHDRAWAL hareketleri. Public domain metodu duplicate/deposit/slot/para/kupür/adet ve plan kapsamını bütünüyle doğruladıktan sonra değiştirir. Reserve/withdraw hizmette, release bakımda da mümkündür.
+- `Infrastructure/Persistence/WithdrawalService.cs`, `WithdrawalRecords.cs`, `CashTransactionGate.cs`, `AtmStore.cs`, DbContext/DI: HMAC kimliği, max-option günlük rezervasyonu, quote snapshot, 60 saniye, confirm/cancel/expiry/bakım iptali ve kalıcı idempotency. Bakiye/ledger/quote/idempotency transaction atomikliği korunur. Ayrı daily usage sayacı yerine kalıcı quote toplamı kullanılır.
+- Bütün nakit mutasyonlarının PostgreSQL transaction advisory gate -> ATM parent FOR UPDATE sırası, aynı kartın farklı ATM'lerdeki limitini ve worker/bakım yarışlarını korur. Case-study sadeliği için bağımsız ATM'ler de seri çalışır; üretim ölçek iddiası yoktur. Saat gate sonrası okunur. Expiry temizliği ayrı commit ve business transaction içinde yeniden kontrol edilir; daha sonra reddedilen istek temizlik commit'ini kaybettirmez.
+- `20261012102731_AddWithdrawalReservations`, designer/snapshot: kalıcı quote/idempotency tabloları, FK/index ve durum/para/tutar/60 saniye/confirmation CHECK kuralları; önceki migration'lar korundu.
+- `Api/WithdrawalEndpoints.cs`, `QuoteExpiryWorker.cs`, `Program.cs`: quote/get/confirm/cancel endpoint'leri ve bir saniyelik hosted expiry worker. Kalıcı hata yanıtları ilk traceId/instance alanlarını ve replay'de aynı JSON'u korur. API quote status büyük harflidir.
+- `compose.yaml`, `.env.example`: açık geliştirme örneği HMAC key; gerçek secret repoya yazılmadı. API doğrudan başlatılırken en az32 UTF-8 byte key zorunludur; bütün instance/restart'lar aynı key'i kullanmalıdır. Kart girişi yalnızca12-19 ASCII rakam kabul eder.
+- `WithdrawalCashTests.cs`, `WithdrawalApiTests.cs`, `ApiFixture.cs`: anlamlı domain invariantları; ayarlanabilir saat, gerçek PostgreSQL, API restart ve yakalanan uygulama logları. Mevcut test izolasyonu korunur.
+- Sürüm0.5.0, README/API, ROADMAP/REQUIREMENTS/DECISIONS ve `Withdrawals.postman_collection.json` güncellendi. ADR-004/005/006/007/016 önceki önerilerin neden değiştiğini korur.
+
+İncelemede bulunan ve giderilen noktalar: domain public metodunun dış girdilerde invariant/atomiklik koruması; kalıcı ProblemDetails traceId/instance; İstanbul gece yarısı; global gate beklerken saatin yeniden okunması; HTTP çağırmadan worker testi; zorlanmış confirm INSERT hatasında rollback ve tekrar; eksik quote404 sonucunun kalıcı replay'i. İlk sandbox build 0 hata/0 uyarı yazmasına rağmen exit1 verdi; izinli tekrar temiz derlendi. İlk test koşusu48unit+27integration, ek worker/rollback/sınır koşusu48+31; son doğrulama aşağıdadır. Başarısız test bastırılmadı.
+
+Gerçek doğrulamalar:
+
+| İşlem / doğrulanan davranış | Sonuç |
+|---|---|
+| `dotnet build FimpleCaseStudy.sln --no-restore` (izinli) | 0 hata, 0 uyarı |
+| EF `AddWithdrawalReservations` | Migration ve model snapshot üretildi; gerçek DB startup'ta uygulanıp pending migration olmadığı doğrulandı |
+| Son `dotnet test FimpleCaseStudy.sln --no-restore --logger 'console;verbosity=minimal'` | 48 unit +32 gerçek PostgreSQL integration geçti; 0 başarısız/atlanan; ham çıktı Git dışı `tmp/v050-tests.log` |
+| Alternatif quote130 ->120/140 | 100x1 +20x2 rezerve; lower confirm100x1 +20x1 tüketti, fazla20 serbest; fiziksel/rezerve ledger toplamları eşleşti |
+| 8 paralel quote | Tek201, diğer7 conflict; aynı banknot iki kez ayrılmadı |
+| 8 farklı key paralel confirm /6 aynı key confirm | Tek fiziksel çekim; farklı key terminal conflict, aynı key aynı200/body |
+| Gerçek API restart ve hata replay | 200 başarı ile400 invalid option ve404 missing quote aynı status/JSON; farklıbody veya quote aynıkey409 |
+| TRY20.000, USD/EUR1.000 farklı ATM | Eşzamanlı tamlimit quote'lardan biri başarılı; aktif ve confirmed kullanım ikinci ATM'yi engelledi |
+| İstanbul gece yarısı | Önceki gün confirmed19.500 yeni güne taşınmadı; açık500 rezervasyon kaldı; yeni gün confirmed toplam20.000'de ek çekim engellendi;60 saniye korunuyor |
+| Cancel/expiry/bakım | Fiziksel stok değişmeden tüm reserved ve limit rezervasyonu geri kazanıldı; ledger release toplamları eşleşti |
+| 59/60 saniye ve gate bekleyen confirm | 59 kabul, tam60 conflict; kilit beklerken60'a geçen quote reddedildi |
+| Hosted worker (HTTPsiz) | Fakeclock+60 ardından bounded ayrıDBscope polling ile Expired/Reserved0 görüldü |
+| Confirm/expiry/bakım yarışı | Tek terminal Expired, tek ReservationRelease, fiziksel çekim yok |
+| Withdrawal ledger INSERT zorla hata | HTTP500 SQL ayrıntısı göstermedi; quoteOpen/cash/reserved korundu, idempotency kaydı yok; trigger kaldırılınca aynıkey başarılı |
+| HMAC ve plaintext denetimi | Kalıcı kimlik64hex HMAC ile eşleşti; quote/ledger ve yakalanmış uygulama logları kartı içermedi; invalidcard yanıtı kartı yankılamadı |
+| `docker compose up --build -d` | Mevcut volume korundu; DB healthy, yeni API ve migration çalıştı |
+| Postman altyapı /ATM kurulum /çekim (`--no-report-events`) | 4istek/8assertion +9/18 +15/32; üçü exit0, başarısız0 |
+
+Postman CLI bulut giriş mesajı yazdı; yerel collection'lar başarılıdır ve buluta yayınlama yapılmadı. Çekim Postman ATM'si bakımda, kurulum collection ATM'si hizmette bırakıldı. Testcontainers ayrı geçici DB kullanır; geliştirme volume'ü silinmedi.
+
+Kalan iş ve sınırlar: v0.6.0 müşteri yatırması; sonraki ledger consistency/mutabakat/ikinci onay/outbox/rapor aşamaları. Global gate ve tek transaction'da bütün expiry taraması yüksek trafikte darboğazdır; batch/partition, idempotency retention, geçmiş arşivleme ve HMAC rotasyonu uygulanmadı. JSON planlara satır bazlı DB FK yoktur; domain doğrular. B4/B5/B6 tamamlandı, B8'in kalan hareket üreticileri/consistency endpoint'i tamamlandı iddiası yoktur. Ana ajan bağımsız son inceleme ve kullanıcı kararı sonrasında commit/push ele alınacak.
+
+## 2026-10-12 / 013 - GPT-6.1-Sol çıktısının bağımsız incelemesi
+
+Kullanıcının isteğiyle geliştirme GPT-6.1-Sol alt ajanına verildi. Kullanım limiti nedeniyle kesilen ajan, kullanıcının devam isteği üzerine mevcut dosyalar korunarak yeniden çalıştırıldı. Ana ajan uygulama sırasında ve teslim sonrasında kaynak kodu, migration, test gövdeleri ve teknik belgeleri ayrıca inceledi.
+
+İnceleme bulguları ve düzeltmeler:
+
+- Public rezervasyon metodu ilk halinde bütün satırları doğrulamadan mutasyon yapabiliyordu. Duplicate/deposit/slot/kupür ve çekim planının rezervasyonla kapsanması kontrolleri mutasyon öncesine taşındı; hatalı ikinci çekim satırında stok ve rezervasyonun değişmediği unit test eklendi.
+- Kalıcı confirm hata yanıtları ProblemDetails middleware'inden geçmediği için traceId/instance eksikti. Alanlar ilk sonuçla birlikte saklandı; replay aynı gövdeyi koruyor. 404 başlığı da düzeltildi.
+- İş günü için UTC yerine mevcut ADR'ye uygun Europe/Istanbul kullanılması istendi. Gece yarısı ve kilit beklerken sürenin dolması gerçek DB testleriyle doğrulandı.
+- Otomatik worker davranışı için HTTP çağırmadan DB polling testi; confirm ledger yazımı hatasında quote/bakiye/rezervasyon/idempotency rollback testi; tam 59/60 saniye sınırı testleri eklendi.
+- Eski API/ADR metinlerindeki çekim ve rezervasyonun henüz olmadığı ifadeleri güncellendi. Global kilit, JSON plan doğrulaması ve temizleme/saklama ölçek sınırları belgelerle eşleştirildi.
+
+Ana ajan `tmp/v050-tests.log` içinden 48 unit +32 integration sonucunu doğrudan kontrol etti; aynı paketi gereksiz yere yeniden çalıştırmadı. Postman 28 istek/58 assertion başarısı alt ajanın çalıştırma raporundan alındı. Ek bağımsız HTTP kontrolünde `/api/info` sürüm0.5.0 ve `/health` Healthy döndü. Kaynak taramasında ham kartı loglayan çağrı veya EF sensitive-data logging etkinleştirmesi görülmedi; log yakalama testinin kapsamı da incelendi.
+
+Sonuç: İncelemede tespit edilen doğruluk ve sözleşme sorunları giderildi; bu kapsamda açık engelleyici bulgu kalmadı. Bu ifade tüm olası hataların yokluğu garantisi değildir. v0.5.0 dosyaları çalışma ağacındadır; bu adımda commit/push yapılmadı. Sonraki geliştirme v0.6.0'dır.
+
+## 2026-10-12 / 014 - v0.5.0 commit ve teslim kapsamı kontrolü
+
+Kullanıcı yeni özelliklere geçmeden mevcut güncellemenin commit/push edilmesini ve yalnızca gönderilmiş geliştirmelerin teknik şartlar/teslim listesiyle karşılaştırılmasını istedi. v0.6.0 başlatılmadı. Önceki 48 unit +32 gerçek DB testinin ham sonucu yeniden okundu; uygulama kodu değişmediği için test paketi tekrar çalıştırılmadı. README'nin AI notuna GPT-6.1-Sol kullanımı ve incelemede yapılan düzeltmeler eklendi. Roadmap'teki geçici gönderim ifadesi kaldırıldı.
+
+Değerlendirme ölçüsü: Automated tests başlığındaki iki davranış ayrı sayıldığında 11 teknik madde vardır. Altyapı, B3 testleri ve gerçek DB testi mevcut; tam Postman senaryosu deposit, reconcile ve report eksikliği nedeniyle tamamlanmış sayılamaz. Üç teslim başlığından repo ve beş alt bölümü içeren README hazırdır; collection dosyaları mevcut ve çalışıyor olsa da istenen tam akış için Postman teslimi kısmidir. Bu sayım bütün Part A/B işlevlerinin tamamlanma yüzdesi değildir.
+
+Bu kayıt v0.5.0 geliştirme commit'ine dahil edilir. Commit ve push komutlarının gerçek sonucu Git çıktısından doğrulanarak kullanıcıya bildirilecek; başarısız gönderim başarılı gibi kaydedilmeyecek. Secret, yerel .env, test logları ve geçici dosyalar commit kapsamına alınmaz.
+Son dosya kontrolü: `git diff --check` exit 0; fazladan EOF boş satırları temizlendi. Git yalnızca mevcut LF/CRLF dönüşüm uyarılarını gösterdi. `docker compose ps` API Up ve PostgreSQL healthy durumunu doğruladı.
