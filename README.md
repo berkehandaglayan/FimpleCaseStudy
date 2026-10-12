@@ -4,7 +4,7 @@ ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
 
 ## Güncel durum
 
-v0.7.0: bakımda fiziksel sayım, kalıcı sayım geçmişi, fark düzeltme hareketleri, ledger consistency kontrolü ve para birimi bazında ATM/kaset bakiye raporu hazır. Quote 60 saniye stok ve günlük limit rezervasyonu tutar; confirm, cancel, otomatik expiry ve bakımda iptal kalıcıdır. Confirm'in Idempotency-Key sonucu PostgreSQL'de saklanır ve API yeniden başladıktan sonra da aynı yanıt döner. Müşteri yatırması recycling/deposit yönlendirmesi ve iadeleriyle atomiktir. İstek gövdeleri: [API sözleşmesi](docs/API.md). B9 ikinci kullanıcı onayı ve B10 kur çevrimi/alarm henüz uygulanmadı.
+v0.8.0: mutabakatta kur snapshot'ı ve 1.000 TRY üzerindeki toplam mutlak fark için ikinci kullanıcı onayı eklendi. Bekleyen onay hizmete dönüşü ve yeni sayımı engeller. Onay nakit düzeltmesini yeniden uygulamaz. Fiziksel sayım/geçmiş, ledger consistency ve para birimi bazında ATM/kaset raporu hazırdır. Quote/confirm/cancel/expiry, günlük limit, persistent idempotency ve müşteri yatırması korunur. İstek gövdeleri: [API sözleşmesi](docs/API.md). B10 genel TRY raporu/alarm/outbox henüz uygulanmadı.
 
 ## Çalıştırma
 
@@ -14,7 +14,7 @@ Docker Desktop Linux engine açıkken repo kökünde:
 docker compose up --build
 ```
 
-API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. Dört migration `cash` şemasını, ATM/kaset/bakiye/hareket tablolarını, ledger koruma trigger'ını, quote/idempotency ve mutabakat geçmişini oluşturur. Veriler Docker named volume içinde saklanır.
+API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. Beş migration `cash` şemasını, ATM/kaset/bakiye/hareket tablolarını, ledger koruma trigger'ını, quote/idempotency, mutabakat geçmişi/onay ve kur tablosunu oluşturur. Veriler Docker named volume içinde saklanır. Kur seed'i TRY=1, USD=40, EUR=45 sabit demo verisidir; güncel piyasa kuru değildir. `/api/exchange-rates` ile görüntülenir.
 
 - Swagger: http://localhost:8080/swagger
 - OpenAPI: http://localhost:8080/swagger/v1/swagger.json
@@ -61,9 +61,9 @@ postman collection run postman/Deposits.postman_collection.json --no-report-even
 postman collection run postman/EndToEnd.postman_collection.json --no-report-events
 ```
 
-`EndToEnd` collection'ı istenen sırada create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report işlemlerini ve ayrıca sayım geçmişi/ledger replay kontrolünü çalıştırır. v0.7.0'da 12 istek/33 kontrol geçti; altyapı 4/8 yeniden geçti. Ayrı environment dosyası gerekmez: baseUrl collection değişkenidir, işlem kimlikleri yanıtlardan alınır. Her E2E koşusu yeni ATM, sentetik kart ve idempotency anahtarı kullanır.
+`EndToEnd` collection'ı istenen sırada create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report işlemlerini ve ayrıca sayım geçmişi/ledger replay kontrolünü çalıştırır. v0.8.0'da kur snapshot'ı, onaysız hizmete dönüş/yeni sayım engeli, aynı kullanıcı red, farklı kullanıcı onayı ve approval replay kontrolleri eklendi. Ayrı environment dosyası gerekmez: baseUrl collection değişkenidir, işlem kimlikleri yanıtlardan alınır. Her E2E koşusu yeni ATM, sentetik kart ve idempotency anahtarı kullanır. Son gerçek test/collection sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
 
-Önceki collection'lar da korunur: ATM yönetimi 9/18 (v0.5.0), çekim+yatırma 16/37 ve yatırma 8/19 (v0.6.0) başarılıydı. Çekim akışı replay/conflict, cancel ve bakım iptalini; yatırma akışı taşma ve iadeleri kontrol eder. Expiry, eşzamanlılık, restart ve kayıt hatasında rollback gerçek DB testlerindedir. v0.7.0 tam test koşusu 77 unit / 45 integration başarılıdır. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
+Önceki collection'lar da korunur: ATM yönetimi 9/18 (v0.5.0), çekim+yatırma 16/37 ve yatırma 8/19 (v0.6.0) başarılıydı. Çekim akışı replay/conflict, cancel ve bakım iptalini; yatırma akışı taşma ve iadeleri kontrol eder. Expiry, eşzamanlılık, restart ve kayıt hatasında rollback gerçek DB testlerindedir. v0.8.0 tam koşuda 95 unit / 54 integration geçti; son legacy uyumluluk düzeltmesinden sonra ilgili 18 unit / 9 integration yeniden geçti. EndToEnd 22 istek / 54 kontrol, Infrastructure 4/8 başarılıdır. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
 
 ## Migration geliştirme
 
@@ -95,17 +95,21 @@ Mutabakat yalnızca bakımda, sıfır rezervasyonla ve beş kasetin tam fiziksel
 
 Gün sınırı, alternatif rezervasyonları ve mutabakat yorumları [DECISIONS](docs/DECISIONS.md) içinde kaynak gereksinimlerden ayrı işaretlenmiştir. Docker imajlarında .NET 10 ve PostgreSQL 17 major etiketleri kullanılır; digest sabitlemesi henüz yapılmadı. NuGet paket sürümleri proje dosyalarında sabittir.
 
-Tam sayımda recycling için konfigüre kupürün sıfır dahil açık sayımı gerekir. Deposit notes boş olabilir; belirtilmeyen para/kupürler sıfır kabul edilir. Aynı sayımı tekrar göndermek yeni geçmiş oluşturur; mutabakat idempotency desteği yoktur. X-User yoksa system kullanılır ve authentication sağlanmaz. Farklar ATM'yi bakımda bırakır; büyük farklarda zorunlu ikinci kullanıcı kontrolü v0.8.0 işidir.
+Tam sayımda recycling için konfigüre kupürün sıfır dahil açık sayımı gerekir. Deposit notes boş olabilir; belirtilmeyen para/kupürler sıfır kabul edilir. Onay beklemeyen aynı sayımı tekrar göndermek yeni geçmiş oluşturur; mutabakat idempotency desteği yoktur. Sayımda X-User yoksa system kullanılır ve authentication sağlanmaz. Farklar ATM'yi bakımda bırakır; onay sonrası hizmete dönüş ayrı state isteğiyle yapılır.
+
+v0.8.0'da toplam fark `sum(abs(delta * denomination * rateToTry))` olarak değerlendirilir; artı/eksi farklar birbirini gizlemez. Tam 1.000 TRY onay istemez. Kullanılan kurlar ve fark değeri sayımda sabitlenir. Approval için X-User zorunludur; aktör trim/lowercase edilir ve yalnız ASCII harf/rakam ile . _ - @ kabul edilir. ALICE ve alice aynı kullanıcıdır. Onaylama nakdi yeniden değiştirmez; aynı onaylayan tekrarında ilk timestamp korunur. Pending sayım varken yeni sayım yapılamaz. Eski v0.7.0 sayımlar LEGACY_COMPLETED olarak korunur; tarihsel kur snapshot'ı bilinmediğinden geriye dönük onay engeli üretilmez. Bunlar [DECISIONS](docs/DECISIONS.md) içinde kaynak kurallardan ayrı açıklanır.
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Part A ve B1-B8 uygulanmıştır; B9 kur tablosu/eşik/başka kullanıcı onayı, B10 genel TRY toplamı/düşük stok alarmı/outbox/worker ve final teslim incelemesi henüz tamamlanmadı. Global transaction kilidi, bütün expired quote'ları tarayan worker/işlem temizliği ve quote toplamlarıyla hesaplanan limit bu küçük kapsamın ölçek sınırlamalarıdır. Quote/idempotency/sayım verileri süresiz saklanır; arşivleme, idempotency saklama süresi ve HMAC anahtar rotasyonu uygulanmadı. JSON olarak saklanan plan/sayım satırlarının DB içinde kaset başına FK doğrulaması yoktur; uygulama domain doğrulaması yapar. Deposit ve mutabakat endpoint'lerinde idempotency yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu yapılmadı. Consistency kontrolü bakiye/ledger drift'ini tespit eder; otomatik veri onarımı veya DB kapasite constraint'lerinin yerini alma amacı taşımaz. Swagger açıktır; authentication ödevde zorunlu değildir ve uygulanmadı.
+Part A ve B1-B9 uygulanmıştır; B10 genel TRY toplamı/düşük stok alarmı/outbox/worker ve final teslim incelemesi henüz tamamlanmadı. Kurlar sabit seed verisidir; canlı kur ve kur yönetimi endpoint'i yoktur. Global transaction kilidi, bütün expired quote'ları tarayan worker/işlem temizliği ve quote toplamlarıyla hesaplanan limit bu küçük kapsamın ölçek sınırlamalarıdır. Quote/idempotency/sayım verileri süresiz saklanır; arşivleme, idempotency saklama süresi ve HMAC anahtar rotasyonu uygulanmadı. JSON olarak saklanan plan/sayım satırlarının DB içinde kaset başına FK doğrulaması yoktur; uygulama domain doğrulaması yapar. Deposit ve mutabakat endpoint'lerinde idempotency yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu yapılmadı. Consistency kontrolü bakiye/ledger drift'ini tespit eder; otomatik veri onarımı veya DB kapasite constraint'lerinin yerini alma amacı taşımaz. Swagger açıktır; authentication ödevde zorunlu değildir ve uygulanmadı.
 
 ## AI kullanımı
 
 Codex; gereksinim analizi, başlangıç kayıtları, uygulama altyapısı ve testler için kullanıldı. Kullanıcı geri bildirimiyle dakika bazlı plan kaldırıldı. İlk test bağımlılığındaki NuGet güvenlik uyarısı paket güncellenerek giderildi; kesinti testindeki paylaşılan veritabanı bağımlılığı test izolasyonuyla düzeltildi. Ayrıntılı sonuçlar [WORKLOG](docs/WORKLOG.md) içinde tutulur.
 
 v0.5.0 çekim akışı GPT-6.1-Sol alt ajanıyla geliştirildi ve ana ajan tarafından incelendi. İnceleme sonucunda rezervasyonun tüm girdileri mutasyon öncesinde doğrulandı, kalıcı hata yanıtlarına traceId/instance eklendi ve İstanbul iş günü hesabı korundu. Worker, rollback ve süre sınırı testleriyle bu noktalar doğrulandı.
+
+v0.8.0 kur/onay akışı Codex ile geliştirildi. Testler PostgreSQL'in enum metni sıralamasının beklenen TRY/USD/EUR sırasından farklı olduğunu ve .NET timestamp hassasiyetinin DB'den yüksek olması nedeniyle approval replay farkını ortaya çıkardı. API sıralaması ve kayıt öncesi mikrosaniye normalizasyonu düzeltilerek doğrulandı; eski sayımların migration'ında tarihsel kur uydurulmaması açıkça belgelendi.
 
 ## Teknik review kayıtları
 

@@ -11,6 +11,7 @@ public sealed class CashManagementDbContext(DbContextOptions<CashManagementDbCon
     public DbSet<WithdrawalQuote> WithdrawalQuotes => Set<WithdrawalQuote>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<ReconciliationRecord> Reconciliations => Set<ReconciliationRecord>();
+    public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

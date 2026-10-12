@@ -36,6 +36,9 @@ internal sealed class AtmStore(CashManagementDbContext db, WithdrawalService wit
             .LoadAsync(cancellationToken);
 
         db.Movements.AddRange(mutate(atm));
+        if (atm.State == AtmState.InService && await db.Reconciliations.AnyAsync(r =>
+                r.AtmId == id && r.Status == ReconciliationStatus.AwaitingApproval, cancellationToken))
+            throw new DomainException("RECONCILIATION_APPROVAL_PENDING", "A different operator must approve the reconciliation before returning to service.", ErrorKind.Conflict);
         if (atm.State == AtmState.Maintenance)
             await withdrawals.CancelAtmInsideAsync(id, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);

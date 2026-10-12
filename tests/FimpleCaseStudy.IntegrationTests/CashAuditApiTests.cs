@@ -96,6 +96,9 @@ public sealed class CashAuditApiTests : IAsyncLifetime
         var saved = (await Client.GetFromJsonAsync<ReconciliationReceipt>(response.Headers.Location, Json))!;
         Assert.Equal(receipt.OperationId, saved.OperationId); Assert.Equal(receipt.Lines, saved.Lines);
         Assert.Equal(HttpStatusCode.NotFound, (await Client.GetAsync($"/api/atms/{other}/reconciliations/{receipt.OperationId}")).StatusCode);
+        var approval = new HttpRequestMessage(HttpMethod.Post, $"/api/atms/{id}/reconciliations/{receipt.OperationId}/approve");
+        approval.Headers.Add("X-User", "bob");
+        Assert.Equal(HttpStatusCode.OK, (await Client.SendAsync(approval)).StatusCode);
         var repeated = await ReconcileAsync(id);
         Assert.Equal(HttpStatusCode.Created, repeated.StatusCode);
         Assert.All((await repeated.Content.ReadFromJsonAsync<ReconciliationReceipt>(Json))!.Lines, l => Assert.Equal(0, l.Delta));

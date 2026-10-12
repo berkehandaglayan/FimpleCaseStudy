@@ -2,6 +2,14 @@
 
 Bu belge README'den ayrıdır. Sohbet bağlamını, değişen çalışma tercihlerini ve hangi işin neden başlatıldığını kalıcı tutar. Kronolojik teknik çalışma kanıtları `WORKLOG.md`, tasarım gerekçeleri `DECISIONS.md` içindedir.
 
+## 2026-10-12 - Başka LLM'e devir
+
+Kullanıcı v0.7.0'ın commit/push edilmesini, kalan roadmap'i başka LLM'de tamamlamak için handover oluşturulmasını istedi. Ardından handover'ın repoya eklenmemesini, yalnız yerelde kalmasını açıkça belirtti. v0.7.0 baf67ef ile GitHub'a gönderildi. Handover Git'in dışladığı `tmp/HANDOVER.md` altında hazırlanır; bu dosyanın kendisi Git'e alınmaz. Uygulama/kanıt/kalan iş durumları bu repodaki ROADMAP/REQUIREMENTS/WORKLOG üzerinde tutulur. Bu devir turunda v0.8.0 başlatılmadı.
+
+## 2026-10-12 - v0.8.0'a bu sohbette devam
+
+Kullanıcı sonrasında "0.8 için devam edelim" diyerek bu sohbette geliştirmeyi yeniden başlattı. Önceki dört yerel docs değişikliği korundu; handover'ın yerelde kalması talimatı değişmedi. v0.8.0 kur tablosu, kur snapshot'ı ve farklı kullanıcı onayı kapsamıdır. Bu yeni talimat tek başına commit/push veya alt ajan başlatma talebi değildir; geliştirme ve doğrulamaları yerelde tamamlıyoruz. v0.7.0 GitHub baseline'ı baf67ef'tir.
+
 ## Kaynak ve amaç
 
 - Proje: FimpleCaseStudy / ATM Cash Management Backend.

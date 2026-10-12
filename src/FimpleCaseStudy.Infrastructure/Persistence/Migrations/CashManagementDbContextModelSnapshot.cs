@@ -174,6 +174,41 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.ExchangeRate", b =>
+                {
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<decimal>("RateToTry")
+                        .HasPrecision(12, 6)
+                        .HasColumnType("numeric(12,6)");
+
+                    b.HasKey("Currency");
+
+                    b.ToTable("exchange_rates", "cash", t =>
+                        {
+                            t.HasCheckConstraint("ck_exchange_rate", "\"Currency\" IN ('TRY','USD','EUR') AND \"RateToTry\" > 0 AND \"RateToTry\" <= 999999 AND (\"Currency\" <> 'TRY' OR \"RateToTry\" = 1)");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Currency = "TRY",
+                            RateToTry = 1m
+                        },
+                        new
+                        {
+                            Currency = "USD",
+                            RateToTry = 40m
+                        },
+                        new
+                        {
+                            Currency = "EUR",
+                            RateToTry = 45m
+                        });
+                });
+
             modelBuilder.Entity("FimpleCaseStudy.Infrastructure.Persistence.IdempotencyRecord", b =>
                 {
                     b.Property<string>("Key")
@@ -210,6 +245,13 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<Guid>("AtmId")
                         .HasColumnType("uuid");
 
@@ -220,13 +262,29 @@ namespace FimpleCaseStudy.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RatesJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<decimal?>("TotalDifferenceTry")
+                        .HasPrecision(20, 6)
+                        .HasColumnType("numeric(20,6)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AtmId", "OccurredAt");
 
+                    b.HasIndex("AtmId", "Status");
+
                     b.ToTable("reconciliations", "cash", t =>
                         {
                             t.HasCheckConstraint("ck_reconciliation_actor", "length(btrim(\"Actor\")) > 0");
+
+                            t.HasCheckConstraint("ck_reconciliation_review", "(\"Status\" = 'LegacyCompleted' AND \"TotalDifferenceTry\" IS NULL AND \"RatesJson\" IS NULL AND \"ApprovedBy\" IS NULL AND \"ApprovedAt\" IS NULL)\nOR (\"TotalDifferenceTry\" IS NOT NULL AND \"RatesJson\" IS NOT NULL AND (\n    (\"Status\" = 'Completed' AND \"TotalDifferenceTry\" BETWEEN 0 AND 1000 AND \"ApprovedBy\" IS NULL AND \"ApprovedAt\" IS NULL)\n    OR (\"Status\" = 'AwaitingApproval' AND \"TotalDifferenceTry\" > 1000 AND \"ApprovedBy\" IS NULL AND \"ApprovedAt\" IS NULL)\n    OR (\"Status\" = 'Approved' AND \"TotalDifferenceTry\" > 1000 AND \"ApprovedBy\" IS NOT NULL AND \"ApprovedAt\" IS NOT NULL\n        AND length(btrim(\"ApprovedBy\")) > 0 AND lower(btrim(\"ApprovedBy\")) <> lower(btrim(\"Actor\")) AND \"ApprovedAt\" >= \"OccurredAt\")))");
                         });
                 });
 

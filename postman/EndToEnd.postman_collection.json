@@ -320,7 +320,8 @@
               "pm.test(\"count recorded\", () => pm.response.to.have.status(201));",
               "const r=pm.response.json(); pm.collectionVariables.set(\"reconciliationId\",r.operationId);",
               "pm.test(\"signed differences\", () => pm.expect(r.lines.filter(l=>l.delta!==0).map(l=>l.delta)).to.eql([-1,1,-1]));",
-              "pm.test(\"operator recorded\", () => pm.expect(r.actor).to.eql(\"alice\"));"
+              "pm.test(\"operator recorded\", () => pm.expect(r.actor).to.eql(\"alice\"));",
+              "pm.test(\"approval required with frozen rates\", () => { const r=pm.response.json(); pm.expect(r.status).to.eql(\"AWAITING_APPROVAL\"); pm.expect(r.totalDifferenceTry).to.eql(22650); pm.expect(r.exchangeRates.map(x=>x.rateToTry)).to.eql([1,40,45]); });"
             ]
           }
         }
@@ -389,6 +390,282 @@
           }
         }
       ]
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"rates ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"demonstration rates\", () => pm.expect(pm.response.json().map(x=>[x.currency,x.rateToTry])).to.eql([[\"TRY\",1],[\"USD\",40],[\"EUR\",45]]));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [],
+        "method": "GET",
+        "url": "{{baseUrl}}/api/exchange-rates"
+      },
+      "name": "Read seeded demonstration exchange rates"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"blocked\", () => pm.response.to.have.status(409));",
+              "pm.test(\"pending approval code\", () => pm.expect(pm.response.json().code).to.eql(\"RECONCILIATION_APPROVAL_PENDING\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "body": {
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "mode": "raw",
+          "raw": "{\"state\":\"IN_SERVICE\"}"
+        },
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
+      },
+      "name": "Return to service is blocked before approval"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"count blocked\", () => pm.response.to.have.status(409));",
+              "pm.test(\"pending remains\", () => pm.expect(pm.response.json().code).to.eql(\"RECONCILIATION_APPROVAL_PENDING\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "X-User",
+            "value": "alice"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "body": {
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "mode": "raw",
+          "raw": "{\"cassettes\":[{\"slot\":1,\"notes\":[{\"currency\":\"TRY\",\"denomination\":100,\"count\":9}]},{\"slot\":2,\"notes\":[{\"currency\":\"TRY\",\"denomination\":50,\"count\":1}]},{\"slot\":3,\"notes\":[{\"currency\":\"TRY\",\"denomination\":20,\"count\":9}]},{\"slot\":4,\"notes\":[{\"currency\":\"USD\",\"denomination\":100,\"count\":10}]},{\"slot\":5,\"notes\":[{\"currency\":\"EUR\",\"denomination\":500,\"count\":1}]}]}"
+        },
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations"
+      },
+      "name": "Count cannot bypass pending approval"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"self approval blocked\", () => pm.response.to.have.status(409));",
+              "pm.test(\"same user code\", () => pm.expect(pm.response.json().code).to.eql(\"SAME_USER_APPROVAL\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "X-User",
+            "value": "ALICE"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations/{{reconciliationId}}/approve"
+      },
+      "name": "Same user cannot approve with different case"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"missing user rejected\", () => pm.response.to.have.status(400));",
+              "pm.test(\"required actor code\", () => pm.expect(pm.response.json().code).to.eql(\"ACTOR_REQUIRED\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations/{{reconciliationId}}/approve"
+      },
+      "name": "Approval requires X-User"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"approved\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set(\"approvalBody\",pm.response.text());",
+              "pm.test(\"review recorded\", () => { const r=pm.response.json(); pm.expect(r.status).to.eql(\"APPROVED\"); pm.expect(r.approvedBy).to.eql(\"bob\"); pm.expect(r.approvedAt).to.be.a(\"string\"); pm.expect(r.totalDifferenceTry).to.eql(22650); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "X-User",
+            "value": "bob"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations/{{reconciliationId}}/approve"
+      },
+      "name": "Different operator approves"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"replayed\", () => pm.response.to.have.status(200));",
+              "pm.test(\"unchanged approval\", () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get(\"approvalBody\")));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "X-User",
+            "value": "BOB"
+          }
+        ],
+        "method": "POST",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/reconciliations/{{reconciliationId}}/approve"
+      },
+      "name": "Identical approval preserves original result"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"in service\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"IN_SERVICE\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "body": {
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "mode": "raw",
+          "raw": "{\"state\":\"IN_SERVICE\"}"
+        },
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
+      },
+      "name": "Return to service after approval"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"report ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"balances unchanged\", () => pm.expect(pm.response.json().totals.map(t=>t.onHandAmount)).to.eql([1130,1000,500]));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [],
+        "method": "GET",
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/report"
+      },
+      "name": "Approval did not dispense or adjust cash again"
+    },
+    {
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"maintenance\", () => pm.response.to.have.status(200));",
+              "pm.test(\"final state\", () => pm.expect(pm.response.json().state).to.eql(\"MAINTENANCE\"));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "body": {
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "mode": "raw",
+          "raw": "{\"state\":\"MAINTENANCE\"}"
+        },
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state"
+      },
+      "name": "Leave demonstration ATM in maintenance"
     }
   ],
   "variable": [
@@ -400,6 +677,6 @@
   "info": {
     "name": "FimpleCaseStudy - End-to-end cash management",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Create -> configure -> load -> service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report; also verify saved count and ledger replay. Only synthetic card data."
+    "description": "Full ordered cash scenario plus four-eyes approval, blocked service, frozen FX rates and approval replay. Seed rates are demonstration data, not market rates."
   }
 }

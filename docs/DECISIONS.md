@@ -104,7 +104,7 @@ Endpoint salt okunurdur; HTTP 200 içindeki isConsistent=false denetim bulgusudu
 
 ## ADR-009 - Yaşam döngüsü ve bakım
 
-Durum: v0.3.0 temel yaşam döngüsü/dolu kaset koruması; v0.5.0 bakımda açık quote iptali uygulandı. Bekleyen mutabakat onayı koruması planlandı.
+Durum: v0.3.0 temel yaşam döngüsü/dolu kaset koruması; v0.5.0 bakımda açık quote iptali; v0.8.0 bekleyen mutabakat onayında hizmete dönüş koruması uygulandı.
 
 PDF akışı: UNCONFIGURED -> CONFIGURED -> LOADED -> IN_SERVICE <-> MAINTENANCE. Configure/load/reconcile yalnızca izin verilen kurulum/bakım durumlarında; deposit/withdrawal yalnızca IN_SERVICE.
 
@@ -112,7 +112,7 @@ Varsayımlar: Bakım geçişinde açık quote'lar güvenli şekilde iptal edilir
 
 ## ADR-010 - Mutabakat ve dört göz onayı
 
-Durum: v0.7.0 temel mutabakat ve sayım geçmişi uygulandı. B9 kur/eşik/ikinci kullanıcı onayı v0.8.0 için önerilen varsayımdır; henüz uygulanmadı.
+Durum: v0.7.0 temel mutabakat ve sayım geçmişi; v0.8.0 B9 kur tablosu/snapshot/eşik/ikinci kullanıcı onayı uygulandı. Doğrulama sonuçları WORKLOG içindedir.
 
 Recycling için tek kupür sayımı, deposit için para/kupür kırılımı alınır. Fark counted - stored olarak kaydedilir; deposit için yalnızca toplam adet almak parasal farkı açıklamaya yetmez.
 
@@ -120,13 +120,21 @@ v0.7.0 sözleşmesi tam envanterdir: beş slot birer kez gönderilir. Recycling 
 
 Sayım MAINTENANCE ve sıfır rezervasyon ister; bakım geçişi mevcut quote'ları zaten iptal eder. Aynı global advisory gate -> ATM satır kilidi protokolü kullanılır. Domain tüm doğrulamaları yapıp stored/counted/delta snapshot'ını ve sadece sıfır olmayan farklar için RECONCILIATION_ADJUSTMENT üretir. Infrastructure header (ATM, aktör, UTC zaman, operationId) ve JSONB sayım satırlarını, bakiyeleri ve hareketleri tek transaction'da kaydeder. Fark sıfır olsa da sayım geçmişi kaydedilir; sıfır delta hareket yaratılmaz. Geçmiş GET ile işlem kimliğinden okunur ve restart sonrası korunur. Satırlar önceki quote planı gibi küçük/sabit kapsamlı snapshot olarak tutulur; JSON içindeki tuple'lara DB FK/check uygulanmaz, Domain doğrular. Normal uygulamada sayım snapshot'ını düzenleyen endpoint yoktur.
 
-X-User yoksa diğer manuel operasyonlarla aynı system varsayılanı kullanılır; boş/128 karakter üstü aktör reddedilir. Kimlik doğrulama sağlamaz. Sayım idempotency anahtarı almaz: aynı envanteri tekrar gönderme yeni sayım geçmişi oluşturur, bakiye değişmemişse ikinci delta sıfırdır. Mutabakat ATM'yi bakımda bırakır. v0.7.0 büyük farklar için ikinci kullanıcı şartını henüz uygulamaz; bu eksik B9 açıkça roadmap'te kalır.
+v0.7.0'da X-User yoksa system varsayılanı kullanıldı; büyük farkta ikinci kullanıcı şartı henüz yoktu. v0.8.0 bu onay şartını ve aşağıdaki aktör canonicalization'ını ekler. Sayım idempotency anahtarı almaz: onay engeli yoksa aynı envanteri tekrar gönderme yeni sayım geçmişi oluşturur; bakiye değişmemişse ikinci delta sıfırdır. Mutabakat ATM'yi bakımda bırakır.
 
 Temel GET report, tek Include/AsSingleQuery ile aynı snapshot'tan kaset adetlerini, ATM para/kupür birleşimini ve TRY/USD/EUR ayrı fiziksel/rezerve/kullanılabilir tutarlarını üretir. Kullanılabilir OnHand-Reserved muhasebe ölçüsüdür; deposit kasetindeki kullanılabilir adet çekilebilir nakit anlamına gelmez. Para birimleri doğrudan toplanmaz. Kur çevrimli genel TRY toplamı ve alarm alanları v0.9.0 kapsamıdır.
 
-PDF, TRY farkların toplamının 1.000'i aşmasını ikinci kullanıcı onayına bağlar. Artı ve eksi farkların birbirini gizlememesi için her farkın mutlak TRY değerlerinin toplamını kullanmak öneriliyor. Tam 1.000 eşik aşımı değildir. Mutabakatta kullanılan kur snapshot'ı saklanır; sonradan kur değişmesi eski onay gereğini değiştirmez.
+PDF, TRY farkların toplamının 1.000'i aşmasını ikinci kullanıcı onayına bağlar. Önceki öneri v0.8.0'da uygulandı: sum(abs(delta * denomination * rateToTry)). Artı/eksi farkların birbirini gizlememesi bizim yorumumuzdur; kaynak işaretlerin nasıl toplanacağını belirtmez. Tam 1.000 eşik aşımı değildir; üstü AWAITING_APPROVAL, diğer yeni sayımlar COMPLETED olur. Kur değerleri altı decimal basamakla sınırlıdır; tam adet/kupürle çarpım ve toplamda ek yuvarlama yapılmaz, eşik ham kesin decimal değere uygulanır. TotalDifferenceTry DB numeric(20,6), kurlar numeric(12,6) saklanır.
 
-PDF'nin adjustment oluşturma sırasıyla uyumlu öneri: fiziksel sayım kabul edilince adjustment ve awaiting approval birlikte kaydedilir; ikinci kullanıcı onayı hizmete dönüş engelini kaldırır, adjustment'ı yeniden uygulamaz. Aynı `X-User` onay veremez. Authentication istenmiyor. Bu yorum kod öncesi test örnekleriyle kesinleştirilecek.
+Önceki öneri uygulandı: fiziksel sayım kabul edilince adjustment, bakiye, sayım snapshot'ı ve awaiting approval birlikte kaydedilir; approval yeni nakit hareketi üretmez. Mevcut RatesJson ve TotalDifferenceTry sonradan yeniden hesaplanmaz; kur tablosu değişse bile eski sayım ve onay gereği sabittir. exchange_rates tablosu TRY=1, USD=40, EUR=45 başlangıç seed'i taşır. Bunlar canlı/güncel piyasa kuru değildir, test/demo varsayımıdır; PDF sayısal oran belirtmez. GET /api/exchange-rates oranları gösterir; rate update endpoint'i veya dış servis entegrasyonu yoktur. Eksik/geçersiz kurla sayım kalıcı olmaz.
+
+Mutabakat için aktör trim + invariant lowercase ile canonical hale gelir; 1-128 ASCII harf/rakam ve . _ - @ kabul edilir. Boş, çoklu veya virgülle birleştirilmiş header reddedilir. ALICE ve alice aynı operatördür. Sayım header'ı yoksa eski API uyumu için system kalır; approval'da X-User zorunludur. Bu alan authentication değildir, case-study kimlik beyanıdır. Diğer manuel load/unload aktör sözleşmesi değişmedi.
+
+POST /api/atms/{id}/reconciliations/{operationId}/approve aynı global gate -> ATM parent row lock altında kaydı yükler ve girenden farklı kullanıcı için APPROVED, ApprovedBy, ApprovedAt yazar. Aynı onaylayan tekrarında ilk timestamp/sonuç korunur; başka onaylayan tekrarında conflict, COMPLETED/LEGACY_COMPLETED kayıtlarında approval-not-required conflict olur. Onay kayıt/bakiye ayrıntılarını değiştirmez. ATM'yi otomatik hizmete almaz; normal state isteği gerekir.
+
+AtmStore.UpdateAsync aynı transaction'da IN_SERVICE sonuç durumunda pending sorgusunu yapar; varsa bütün mutasyonu commit öncesi reddeder. Böylece state guard yalnız HTTP katmanına bırakılmaz ve approve/service yarışı aynı gate ile sıraya girer. Pending sayım varken yeni reconciliation da conflict olur; sıfır-fark yeni sayım eski onayı silemez. Bakımda manuel load/unload/configure kuralları değişmedi; pending onayı nakit hareketleriyle kendiliğinden kalkmaz. Approval ve yeni sayım paralelliğinde lock sırasına göre ya eski pending conflict ya onay sonrası yeni sayım geçerlidir.
+
+Yeni migration eski sayımları LEGACY_COMPLETED yapar, kur/tutar snapshot'ı NULL kalır. Tarihsel kur bilinmediğinden bugünkü demo kurla eski farklar yeniden değerlendirilmez ve hizmete dönüş geriye dönük bloklanmaz. Bu geçiş tercihi kaynak gereksinim değildir; v0.7.0 geçmişini korumak için uygulanan migration varsayımıdır. Yeni sayımlar için snapshot/tutar ve status alanları zorunlu; DB check completed<=1000, pending/approved>1000 ve approval aktörü/zamanı tutarlılığını korur. Eski snapshot satırları değişmez, yalnız yeni onay metadata'sı güncellenir.
 
 ## ADR-011 - Yatırma ve kapasite
 

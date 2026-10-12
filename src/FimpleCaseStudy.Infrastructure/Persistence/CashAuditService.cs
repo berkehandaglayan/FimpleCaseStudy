@@ -8,26 +8,54 @@ namespace FimpleCaseStudy.Infrastructure.Persistence;
 
 internal sealed class CashAuditService(CashManagementDbContext db, TimeProvider clock) : ICashAuditService
 {
-    public async Task<ReconciliationReceipt> ReconcileAsync(Guid id, ReconciliationRequest request, string actor, CancellationToken ct)
+    public async Task<ReconciliationView> ReconcileAsync(Guid id, ReconciliationRequest request, string actor, CancellationToken ct)
     {
+        actor = ReconciliationApproval.NormalizeActor(actor);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await CashTransactionGate.AcquireAsync(db, ct);
         var atm = await db.Atms.FromSqlInterpolated($"SELECT * FROM cash.atms WHERE \"Id\" = {id} FOR UPDATE")
             .SingleOrDefaultAsync(ct) ?? throw MissingAtm();
         await db.Entry(atm).Collection(a => a.Cassettes).Query().Include(c => c.Balances).LoadAsync(ct);
-        var change = atm.Reconcile(request.Cassettes, actor, clock.GetUtcNow());
-        db.Reconciliations.Add(ReconciliationRecord.From(change.Receipt));
+        if (await db.Reconciliations.AnyAsync(r => r.AtmId == id && r.Status == ReconciliationStatus.AwaitingApproval, ct))
+            throw new DomainException("RECONCILIATION_APPROVAL_PENDING", "Approve the pending reconciliation before submitting another count.", ErrorKind.Conflict);
+        var rates = await GetExchangeRatesAsync(ct);
+        var change = atm.Reconcile(request.Cassettes, actor, Now());
+        var record = ReconciliationRecord.From(change.Receipt, rates);
+        db.Reconciliations.Add(record);
         db.Movements.AddRange(change.Movements);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
-        return change.Receipt;
+        return record.ToView();
     }
 
-    public async Task<ReconciliationReceipt> GetReconciliationAsync(Guid id, Guid operationId, CancellationToken ct)
+    public async Task<ReconciliationView> GetReconciliationAsync(Guid id, Guid operationId, CancellationToken ct)
     {
         var record = await db.Reconciliations.AsNoTracking().SingleOrDefaultAsync(r => r.AtmId == id && r.Id == operationId, ct)
             ?? throw new DomainException("RECONCILIATION_NOT_FOUND", "Reconciliation does not exist for this ATM.", ErrorKind.NotFound);
-        return record.ToReceipt();
+        return record.ToView();
+    }
+
+    public async Task<ReconciliationView> ApproveAsync(Guid id, Guid operationId, string actor, CancellationToken ct)
+    {
+        actor = ReconciliationApproval.NormalizeActor(actor);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await CashTransactionGate.AcquireAsync(db, ct);
+        _ = await db.Atms.FromSqlInterpolated($"SELECT * FROM cash.atms WHERE \"Id\" = {id} FOR UPDATE")
+            .SingleOrDefaultAsync(ct) ?? throw MissingAtm();
+        var record = await db.Reconciliations.SingleOrDefaultAsync(r => r.AtmId == id && r.Id == operationId, ct)
+            ?? throw new DomainException("RECONCILIATION_NOT_FOUND", "Reconciliation does not exist for this ATM.", ErrorKind.NotFound);
+        record.Approve(actor, Now());
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return record.ToView();
+    }
+
+    public async Task<IReadOnlyList<ExchangeRateSnapshot>> GetExchangeRatesAsync(CancellationToken ct)
+    {
+        var rates = await db.ExchangeRates.AsNoTracking()
+            .Select(r => new ExchangeRateSnapshot(r.Currency, r.RateToTry)).ToArrayAsync(ct);
+        // The database stores enum names; string sorting differs from the API's TRY/USD/EUR order.
+        return rates.OrderBy(r => r.Currency).ToArray();
     }
 
     public async Task<AtmCashReport> ReportAsync(Guid id, CancellationToken ct)
@@ -85,4 +113,6 @@ internal sealed class CashAuditService(CashManagementDbContext db, TimeProvider 
         }).ToArray();
     }
     private static DomainException MissingAtm() => new("ATM_NOT_FOUND", "ATM does not exist.", ErrorKind.NotFound);
+    // PostgreSQL timestamps have microsecond precision; preserve exact approval replay on the first response too.
+    private DateTimeOffset Now() => new(clock.GetUtcNow().UtcTicks / 10 * 10, TimeSpan.Zero);
 }

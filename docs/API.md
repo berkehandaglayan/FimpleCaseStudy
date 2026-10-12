@@ -1,4 +1,4 @@
-# API sözleşmesi - v0.7.0
+# API sözleşmesi - v0.8.0
 
 Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri string ve büyük harflidir; durumlarda alt çizgi kullanılır (`IN_SERVICE`). Numeric enum, tanımsız enum ve bozuk JSON 400 ProblemDetails döndürür.
 
@@ -16,6 +16,7 @@ Base URL: `http://localhost:8080`. Swagger: `/swagger`. JSON enum değerleri str
 | POST | `/api/atms/{id}/state` | İzin verilen operasyonel durum geçişini yap |
 | POST | `/api/atms/{id}/reconciliations` | Bakımda tam fiziksel sayım ve fark düzeltmesini kaydet |
 | GET | `/api/atms/{id}/reconciliations/{operationId}` | Sayım snapshot'ını getir |
+| POST | `/api/atms/{id}/reconciliations/{operationId}/approve` | Farklı operatörle pending sayımı onayla |
 | GET | `/api/atms/{id}/report` | ATM/kaset kupürleri ve para birimi toplamlarını getir |
 | GET | `/api/atms/{id}/consistency` | Fiziksel/rezerve bakiyeyi hareket toplamlarıyla karşılaştır |
 
@@ -133,7 +134,7 @@ Yanıt `operationId`, `acceptedCount`, `returnedCount`, `placements`, `returned`
 
 Kabul edilen stok ve DEPOSIT hareketleri aynı transaction'dadır; yalnızca kabul edilen banknotlar ledger'a girer. Bir işlemde aynı kaset/para/kupür hareketleri birleştirilir, OperationId paylaşılır. Reserve/confirm/deposit aynı PostgreSQL kilit sırasına uyar. Veritabanı hatasında hiçbir kabul kalıcı olmaz. Deposit idempotency desteği bu sürümde yoktur; aynı isteği tekrar göndermek yeni bir yatırma işlemidir. Operasyon kimliği tek başına tekrar engellemez.
 
-## Fiziksel sayım ve mutabakat (v0.7.0)
+## Fiziksel sayım ve mutabakat (v0.8.0)
 
 `POST /api/atms/{id}/reconciliations`, MAINTENANCE ve sıfır rezervasyon ister. Header: `X-User: alice` (yoksa system). Tam fiziksel envanter gönderilir; beş slot birer kez bulunmalıdır.
 
@@ -151,9 +152,21 @@ Kabul edilen stok ve DEPOSIT hareketleri aynı transaction'dadır; yalnızca kab
 
 Recycling notes tam bir konfigüre kupür satırıdır; adet sıfır olsa da yazılır. Deposit için notes boş liste olabilir; belirtilmeyen para/kupürler sıfır sayılır. Null notes, duplicate para/kupür, geçersiz kupür/para ve0-100 dışındaki adet400; toplam kaset kapasitesi100 üstü409. Her kaset önce doğrulanır; geçersiz son kaset ilkini değiştirmez.
 
-201 yanıtı ve Location header'ı oluşur. Gövde `operationId`, `atmId`, `actor`, `occurredAt` (UTC), `lines` içerir. Her line: `cassetteId`, `slot`, `currency`, `denomination`, `storedCount`, `countedCount`, `delta` (counted-stored). Geçmişte kalan sıfır bakiyeli kupürler korunabilir. Fark sıfır olsa da sayım kaydı oluşur; yalnızca sıfır olmayan farklar fiziksel bakiye ve RECONCILIATION_ADJUSTMENT hareketi yaratır. Kayıt/hareket/bakiye tek transaction'dadır. ATM bakımda kalır. Aynı envanteri yeniden gönderme ayrı sayımdır; idempotency desteği yoktur.
+201 yanıtı ve Location header'ı oluşur. Gövde `operationId`, `atmId`, `actor`, `occurredAt` (UTC), `lines`, `status`, `totalDifferenceTry`, `exchangeRates`, `approvedBy`, `approvedAt` içerir. Her line: `cassetteId`, `slot`, `currency`, `denomination`, `storedCount`, `countedCount`, `delta` (counted-stored). Geçmişte kalan sıfır bakiyeli kupürler korunabilir. Fark sıfır olsa da sayım kaydı oluşur; yalnızca sıfır olmayan farklar fiziksel bakiye ve RECONCILIATION_ADJUSTMENT hareketi yaratır. Kayıt/hareket/bakiye/onay gereği tek transaction'dadır. ATM bakımda kalır. Aynı envanteri yeniden gönderme ayrı sayımdır; idempotency desteği yoktur, fakat pending onay varken yeni sayım engellenir.
 
-`GET /api/atms/{id}/reconciliations/{operationId}` kaydedilmiş snapshot'ı200 döndürür; başka ATM'ye ait veya olmayan sayım404 RECONCILIATION_NOT_FOUND. ATM bulunamayan POST404 ATM_NOT_FOUND, hizmette sayım409 INVALID_ATM_STATE, rezervasyon varsa409 ACTIVE_RESERVATIONS. B9 kur/1.000 TRY eşiği/ikinci kullanıcı onayı bu sürümde uygulanmadı.
+`GET /api/atms/{id}/reconciliations/{operationId}` kaydedilmiş snapshot'ı 200 döndürür; başka ATM'ye ait veya olmayan sayım 404 RECONCILIATION_NOT_FOUND. ATM bulunamayan POST 404 ATM_NOT_FOUND, hizmette sayım 409 INVALID_ATM_STATE, rezervasyon varsa 409 ACTIVE_RESERVATIONS.
+
+### Kur snapshot'ı ve ikinci kullanıcı onayı
+
+`GET /api/exchange-rates` TRY/USD/EUR sırasıyla `currency`, `rateToTry` listesi döndürür. Migration seed oranları TRY=1, USD=40, EUR=45 yalnız örnek/demo değeridir; güncel piyasa kuru değildir. Oranlar pozitif ve en fazla altı decimal basamaktır, TRY daima 1. Kur güncelleme API'si eklenmedi. Sayım anındaki üç oran `exchangeRates` alanına kopyalanır; sonraki kur değişikliği eski sayım tutarını değiştirmez.
+
+`totalDifferenceTry = sum(abs(delta * denomination * rateToTry))`. Pozitif/negatif farklar birbirini götürmez. Eşik kesin decimal toplamla karşılaştırılır; toplam <=1000 COMPLETED, >1000 AWAITING_APPROVAL. Yeni sayım snapshot'ı/tutarı doludur; v0.8.0 öncesi geçmiş LEGACY_COMPLETED ve null totalDifferenceTry/exchangeRates taşır. Legacy için güncel kurla geçmiş fark/onay gereği uydurulmaz.
+
+Mutabakat aktörü trim + lowercase ile saklanır; 1-128 ASCII harf/rakam ve `.`, `_`, `-`, `@` kabul edilir. Çoklu/virgüllü X-User veya geçersiz karakter 400 INVALID_ACTOR. Sayımda header yoksa system; approval'da yoksa 400 ACTOR_REQUIRED.
+
+`POST /api/atms/{id}/reconciliations/{operationId}/approve` boş gövdeyle, `X-User: bob` header'ıyla çağrılır. Alice'in sayımını ALICE onaylayamaz: 409 SAME_USER_APPROVAL. Farklı operatör pending kaydı APPROVED yapar, approvedBy/approvedAt(UTC) yazar, 200 verir. Yeni adjustment/bakiye değişimi yoktur. Aynı onaylayan tekrarında ilk onay sonucu/timestamp korunur; başka onaylayan 409 RECONCILIATION_ALREADY_APPROVED. Onay gerektirmeyen sayım 409 APPROVAL_NOT_REQUIRED. Onay ATM'yi otomatik hizmete almaz.
+
+Pending kayıt varken MAINTENANCE -> IN_SERVICE ve yeni reconciliation 409 RECONCILIATION_APPROVAL_PENDING alır. Approval/state/sayım aynı PostgreSQL lock sırasıyla çalışır; başka ATM'ye ait sayım onaylanamaz. Onay sonrası normal state isteğiyle hizmete dönüş mümkündür. Authentication uygulanmadı; X-User operatör kimlik beyanıdır. Eksik/geçersiz kurda sayım 409 INVALID_EXCHANGE_RATES ve rollback; geçersiz DB onay kaydı da transaction'ı geri alır.
 
 ## Nakit raporu ve ledger denetimi (v0.7.0)
 
