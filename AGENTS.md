@@ -2,7 +2,7 @@
 
 - Kullanıcıyla Türkçe iletişim kur. Zamanı dakika dakika bölme; sürüm hedefleri ve tamamlanma ölçütleriyle ilerle.
 - Bu proje birlikte geliştirilecek. Her adımda neyi, neden değiştirdiğini ve nasıl doğruladığını açıkla.
-- Önce `docs/ROADMAP.md`, `docs/WORKLOG.md` ve `docs/DECISIONS.md` dosyalarını oku. Proje bağlamı `docs/PROJECT_CONTEXT.md` içindedir.
+- Önce `docs/ROADMAP.md`, `docs/WORKLOG.md` ve `docs/DECISIONS.md` dosyalarını oku.
 - Kayda değer her geliştirme sonunda `docs/WORKLOG.md` dosyasına tarih, hedef sürüm, değişen dosyalar/bileşenler, teknik gerekçe, çalıştırılan doğrulamalar, gerçek sonuçlar ve kalan işleri ekle.
 - Yapılacak işi yapılmış gibi yazma. Öneri, uygulanmış karar ve doğrulanmış sonuç birbirinden ayrı olmalı.
 - Gereksinimlerin durumunu `docs/REQUIREMENTS.md`, sürüm ilerlemesini `docs/ROADMAP.md` üzerinde güncel tut.

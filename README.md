@@ -45,7 +45,7 @@ $env:Withdrawals__HmacKey = 'example-development-only-hmac-key-change-me'
 dotnet run --project src/FimpleCaseStudy.Api -- --urls http://localhost:8080
 ```
 
-Compose API servisi çalışıyorsa önce `docker compose stop api` komutunu kullanın veya yerel API için farklı bir port seçin. `.env` üzerinden DB portu ya da parolası değiştirildiyse bağlantı dizesini de güncelleyin. Ayrıntılı kurulum rehberi: [SETUP](docs/SETUP.md).
+Compose API servisi çalışıyorsa önce `docker compose stop api` komutunu kullanın veya yerel API için farklı bir port seçin. `.env` üzerinden DB portu ya da parolası değiştirildiyse bağlantı dizesini de güncelleyin.
 
 ## Testler
 
@@ -185,7 +185,6 @@ Tanımlanan işlevsel kapsamın geliştirme ve teslim doğrulaması tamamlanmı�
 
 ## Teknik inceleme kayıtları
 
-- [İstek geçmişi ve proje bağlamı](docs/PROJECT_CONTEXT.md)
 - [SemVer roadmap](docs/ROADMAP.md)
 - [Kronolojik teknik günlük](docs/WORKLOG.md)
 - [API sözleşmesi ve örnek istekler](docs/API.md)
