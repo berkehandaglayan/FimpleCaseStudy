@@ -1,14 +1,18 @@
 # FimpleCaseStudy
 
-ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
+## Genel Bakış
 
-## Güncel durum
+ATM Cash Management Backend, ATM ağındaki nakit envanterini ve finansal işlem yaşam döngüsünü yöneten bir REST API'dir. ASP.NET Core 10, EF Core ve PostgreSQL üzerinde çalışır; ATM/kaset yönetimi, banknot seçimi, rezervasyonlu para çekme, günlük limit, kalıcı idempotency, para yatırma, mutabakat ve ikinci kullanıcı onayı, hareket defteri, TRY bazlı raporlama ve transactional outbox işlevlerini kapsar.
 
-v1.0.0: Part A ve B1-B10 uygulandı ve teslim doğrulaması tamamlandı. ATM/kaset yönetimi, banknot seçimi, rezervasyonlu çekim, günlük limit, kalıcı idempotency, yatırma, mutabakat ve ikinci kullanıcı onayı, hareket defteri, TRY raporu ve transactional outbox hazırdır. Temiz kaynak kopyası ve boş PostgreSQL ile Compose açılışı doğrulandı; 106 unit ve 63 gerçek DB testi, beş Postman collection'ında 60 istek / 142 kontrol geçti. İstek gövdeleri: [API sözleşmesi](docs/API.md). Git gönderim durumu ve doğrulama kayıtları [ROADMAP](docs/ROADMAP.md) ve [WORKLOG](docs/WORKLOG.md) içindedir.
+Tasarımın temel hedefi, fiziksel nakit, rezervasyonlar ve işlem kayıtları arasındaki tutarlılığı korumaktır. Nakit mutasyonları ilişkisel transaction sınırında yürütülür; eşzamanlı işlemler veritabanı kilitleriyle koordine edilir ve hareket defteri append-only olarak korunur.
+
+Her ATM'de dört recycling ve bir deposit-only kaseti bulunur; kaset kapasitesi toplam 100 banknottur. Recycling tek para/kupür, deposit karışık para/kupür taşır. TRY/USD/EUR ve 20/50/100/500 kupürleri desteklenir. Recycling kasetlerinden bir veya ikisi USD/EUR için konfigüre edilir.
+
+v1.0.0 doğrulamasında temiz kaynak kopyası ve boş PostgreSQL ile Compose açılışı, otomatik migration ve yeniden başlatma sonrası veri kalıcılığı kontrol edildi. 106 unit test, 63 gerçek veritabanı entegrasyon testi ve beş Postman collection'ında 60 istek / 142 kontrol başarılı oldu. İstek ve yanıt yapıları [API sözleşmesi](docs/API.md) içindedir. Sürüm ve doğrulama kayıtları [ROADMAP](docs/ROADMAP.md) ve [WORKLOG](docs/WORKLOG.md) üzerinden izlenebilir.
 
 ## Çalıştırma
 
-Uygulamayı çalıştırmak için Docker Desktop'ın Linux engine'i yeterlidir; host makineye .NET SDK veya PostgreSQL kurmak gerekmez. Kaynağı alıp başlat:
+Uygulamayı çalıştırmak için Docker Desktop'ın Linux engine'i yeterlidir. Host makinede .NET SDK veya PostgreSQL kurulumu gerekmez. Kaynağı alıp repo kökünde başlatın:
 
 ```powershell
 git clone https://github.com/berkehandaglayan/FimpleCaseStudy.git
@@ -16,7 +20,9 @@ cd FimpleCaseStudy
 docker compose up
 ```
 
-API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. Altı migration `cash` şemasını, ATM/kaset/bakiye/hareket tablolarını, ledger koruma trigger'ını, quote/idempotency, mutabakat geçmişi/onay, kur ve outbox tablolarını oluşturur. Veriler Docker named volume içinde saklanır. Kur seed'i TRY=1, USD=40, EUR=45 sabit demo verisidir; güncel piyasa kuru değildir. `/api/exchange-rates` ile görüntülenir.
+API, PostgreSQL sağlık kontrolü başarılı olduktan sonra başlar ve bekleyen EF Core migration'larını otomatik uygular. Altı migration; `cash` şemasını, ATM/kaset/bakiye/hareket tablolarını, ledger koruma trigger'ını, quote/idempotency kayıtlarını, mutabakat geçmişi ve onay alanlarını, kur ve outbox tablolarını oluşturur. Veriler Docker named volume içinde saklanır.
+
+Başlangıç kur verileri `TRY=1`, `USD=40`, `EUR=45` olarak tanımlanmıştır. Bu değerler sabit demo verisidir; güncel piyasa kuru sağlamaz. Kurlar `/api/exchange-rates` üzerinden görüntülenebilir.
 
 - Swagger: http://localhost:8080/swagger
 - OpenAPI: http://localhost:8080/swagger/v1/swagger.json
@@ -24,13 +30,13 @@ API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uyg
 - API canlılık: http://localhost:8080/health/live
 - Sürüm bilgisi: http://localhost:8080/api/info
 
-Portları değiştirmek için `.env.example` dosyasını `.env` olarak kopyala ve `API_PORT` / `DB_PORT` değerlerini değiştir. Compose varsayılan DB parolası ve HMAC anahtarı açıkça yerel geliştirme örneğidir. Gerçek kullanımda `WITHDRAWAL_HMAC_KEY` en az 32 UTF-8 byte içeren uygulama sırrı olmalıdır; tüm instance ve yeniden başlatmalar aynı anahtarı kullanmalıdır. Anahtarı değiştirmek aynı kartın kimliğini değiştirir; otomatik anahtar rotasyonu uygulanmadı. Portlar localhost'a bağlıdır. `.env` Git'e alınmaz.
+Portları değiştirmek için `.env.example` dosyasını `.env` olarak kopyalayın ve `API_PORT` / `DB_PORT` değerlerini düzenleyin. Compose içindeki varsayılan DB parolası ve HMAC anahtarı yerel geliştirme örnekleridir. Dağıtımda `WITHDRAWAL_HMAC_KEY`, en az 32 UTF-8 byte içeren bir uygulama sırrı olarak sağlanmalıdır; tüm instance'lar ve yeniden başlatmalar aynı anahtarı kullanmalıdır. Anahtarın değiştirilmesi aynı kart için üretilen kimliği değiştirir. Otomatik anahtar rotasyonu uygulanmamıştır. Portlar `localhost` arayüzüne bağlıdır; `.env` Git'e alınmaz.
 
-İlk açılış image'ı derler. Kaynak kodu güncelledikten sonra `docker compose up --build` kullan. Durdurma: `docker compose down` (veritabanı volume'ünü korur). Yeniden `docker compose up` mevcut verileri açar; daha önce uygulanan migration'lar tekrar çalıştırılmaz.
+İlk açılışta uygulama image'ı derlenir. Kaynak kod güncellendiğinde `docker compose up --build` kullanın. `docker compose down` servisleri durdurur ve veritabanı volume'ünü korur. Sonraki `docker compose up` aynı verileri kullanır; daha önce uygulanan migration'lar yeniden çalıştırılmaz.
 
 ### API'yi yerelde geliştirme
 
-.NET 10 SDK gerekir. PostgreSQL'i başlatıp PowerShell'de:
+Yerel geliştirme için .NET 10 SDK gerekir. PostgreSQL'i başlatıp PowerShell'de aşağıdaki komutları çalıştırın:
 
 ```powershell
 docker compose up -d db
@@ -39,11 +45,11 @@ $env:Withdrawals__HmacKey = 'example-development-only-hmac-key-change-me'
 dotnet run --project src/FimpleCaseStudy.Api -- --urls http://localhost:8080
 ```
 
-Compose API servisi de açıksa önce `docker compose stop api` çalıştır veya farklı API portu seç. `.env` içinde DB port/parolası değiştirildiyse bağlantı dizesini de buna göre değiştir. Tam kurulum rehberi: [SETUP](docs/SETUP.md).
+Compose API servisi çalışıyorsa önce `docker compose stop api` komutunu kullanın veya yerel API için farklı bir port seçin. `.env` üzerinden DB portu ya da parolası değiştirildiyse bağlantı dizesini de güncelleyin. Ayrıntılı kurulum rehberi: [SETUP](docs/SETUP.md).
 
 ## Testler
 
-.NET 10 SDK ve Docker engine açıkken repo kökünde:
+.NET 10 SDK kurulu ve Docker engine açıkken repo kökünde çalıştırın:
 
 ```powershell
 dotnet restore
@@ -51,9 +57,11 @@ dotnet build FimpleCaseStudy.sln -c Release --no-restore
 dotnet test FimpleCaseStudy.sln -c Release --no-build
 ```
 
-Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. Banknot testleri sekiz B3 örneğini, rezervasyon/limit sınırlarını, doluluk önceliğini, deposit dışlamasını ve 300 sabit seed'li senaryoda bağımsız exhaustive enumeration karşılaştırmasını içerir. Diğer testler kaset kuralları, lifecycle, karma deposit kapasitesi, atomik yükleme/boşaltma, ATM izolasyonu, paralel yükleme, ledger yazım hatasında rollback, EF/SQL ledger değişmezliği ve altyapıyı doğrular. Son çalıştırma sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
+Testcontainers her entegrasyon testi için ayrı PostgreSQL container'ı ve dinamik port oluşturur. Testler mevcut Compose veritabanından bağımsızdır; container'lar test sonunda temizlenir. Kilit, transaction, migration ve constraint davranışları gerçek PostgreSQL üzerinde doğrulanır.
 
-Postman CLI kuruluysa çalışan API üzerinde aşağıdaki collection'ları çalıştır. Postman Desktop kullanıyorsan JSON dosyalarını import edip Collection Runner ile sırayla çalıştırabilirsin:
+Banknot seçimi testleri sekiz kabul senaryosunu; rezervasyon ve limit sınırlarını, fiziksel doluluk önceliğini, deposit kasetinin çekimden dışlanmasını ve 300 sabit seed'li senaryoda bağımsız exhaustive enumeration karşılaştırmasını kapsar. Entegrasyon testleri yaşam döngüsü, kaset kapasitesi, ATM izolasyonu, paralel nakit işlemleri, günlük limit, idempotent replay, süre dolumu, mutabakat onayı, kur snapshot'ı ve outbox teslim davranışlarını doğrular. Kasıtlı kayıt hatalarında rollback ve EF/SQL seviyesinde ledger değişmezliği de test kapsamındadır. Son çalıştırma sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
+
+Postman CLI ile çalışan API üzerinde aşağıdaki collection'ları çalıştırın. Postman Desktop üzerinden JSON dosyaları import edilerek Collection Runner da kullanılabilir:
 
 ```powershell
 postman collection run postman/Infrastructure.postman_collection.json --no-report-events
@@ -63,7 +71,9 @@ postman collection run postman/Deposits.postman_collection.json --no-report-even
 postman collection run postman/EndToEnd.postman_collection.json --no-report-events
 ```
 
-`EndToEnd` collection'ı istenen sırada create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report işlemlerini ve ayrıca sayım geçmişi/ledger replay kontrolünü çalıştırır. Kur snapshot'ı, onaysız hizmete dönüş/yeni sayım engeli, farklı kullanıcı onayı, replay, genel TRY toplamı ve kaydedilmiş low-cash olaylarını doğrular. Ayrı environment dosyası gerekmez: baseUrl collection değişkenidir, işlem kimlikleri yanıtlardan alınır. Her E2E koşusu yeni ATM, sentetik kart ve idempotency anahtarı kullanır. Son gerçek test/collection sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
+`EndToEnd` collection'ı create ATM -> configure -> load -> in service -> quote -> confirm -> deposit -> maintenance -> reconcile -> report sırasını izler. Ek kontroller; sayım geçmişi, ledger tutarlılığı, kur snapshot'ı, onaysız hizmete dönüş ve yeni sayım engeli, farklı kullanıcı onayı, replay, genel TRY toplamı ve düşük stok olaylarını kapsar.
+
+Ayrı environment dosyası gerekmez: `baseUrl` collection değişkenidir ve işlem kimlikleri yanıtlardan alınır. Her uçtan uca koşu yeni ATM, sentetik kart ve idempotency anahtarı kullanır. Son test ve collection sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
 
 v1.0.0 temiz kurulumunda tüm collection'lar yeniden doğrulandı:
 
@@ -75,7 +85,7 @@ v1.0.0 temiz kurulumunda tüm collection'lar yeniden doğrulandı:
 | Deposits | 8 | 19 |
 | EndToEnd | 23 | 60 |
 
-Çekim akışı replay/conflict, cancel ve bakım iptalini; yatırma akışı taşma ve iadeleri kontrol eder. Expiry, eşzamanlılık, restart ve kayıt hatasında rollback 63 gerçek DB testinin içindedir. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan. CLI'nın cloud'a sonuç yayınlamak için giriş isteyen mesajı yerel test sonucunu etkilemez; bu doğrulamalar için Postman hesabı gerekmedi.
+API portu değiştiyse CLI komutlarına `--env-var baseUrl=http://localhost:YENI_PORT` ekleyin. Yerel collection koşuları için Postman hesabı gerekmez; cloud'a sonuç yayınlama işlemi ayrıca kimlik doğrulama gerektirir.
 
 ## Migration geliştirme
 
@@ -84,56 +94,96 @@ dotnet tool restore
 dotnet ef migrations add MigrationName --project src/FimpleCaseStudy.Infrastructure --startup-project src/FimpleCaseStudy.Api --output-dir Persistence/Migrations
 ```
 
-`dotnet-ef` sürümü repo içindeki tool manifest'inde sabittir. Design-time factory model üretirken DB bağlantısı açmaz. Uygulama başlangıcında migration başarısızsa servis hazır gibi davranmak yerine açılışı durdurur.
+`dotnet-ef` sürümü repo içindeki tool manifest'inde sabittir. Design-time factory, model üretirken DB bağlantısı açmaz. Başlangıç migration'ı başarısız olduğunda uygulama açılışı durur; servis hazır duruma geçmez. Compose tek API instance'ı çalıştırır.
 
 ## Mimari ve temel tasarım kararları
 
-- Domain: ATM aggregate, kasetler, kupür bakiyeleri, yaşam döngüsü, nakit doğrulamaları ve bounded dynamic programming banknot seçicisi.
-- Application: AtmService, IAtmStore sınırı, istek/yanıt DTO'ları ve test edilebilir TimeProvider.
-- Infrastructure: EF eşlemeleri/constraint'ler, ATM satır kilidi, transaction, migration, ledger trigger'ı, sağlık kontrolü ve outbox oluşturma/dispatch.
-- Api: HTTP endpoint'leri, DI composition root, Swagger ve hata yanıtları.
+- **Domain:** ATM aggregate, kasetler, kupür bakiyeleri, yaşam döngüsü, nakit doğrulamaları ve sınırlı stoklu dynamic programming banknot seçicisi.
+- **Application:** `AtmService`, `IAtmStore`, kullanım senaryosu sözleşmeleri, istek/yanıt DTO'ları ve test edilebilir `TimeProvider` üzerinden zaman bağımlılığı.
+- **Infrastructure:** EF Core eşlemeleri ve constraint'ler, PostgreSQL kilitleri, transaction yönetimi, migration'lar, ledger trigger'ı, sağlık kontrolü ve outbox oluşturma/dispatch.
+- **Api:** HTTP endpoint'leri, dependency injection composition root, Swagger/OpenAPI ve hata yanıtları.
 
-Bilinmeyen endpoint gibi HTTP hataları ProblemDetails ile `code`, `traceId` ve `instance` alanları taşır. `/health` başarısızlığında 503 / `DATABASE_NOT_READY`, `/health/live` ise DB'den bağımsızdır. Beklenmeyen çalışma zamanı hataları exception handler üzerinden işlenir; domain doğrulama hataları 400, bulunamayan ATM 404, durum/stok çelişkileri 409 döndürür.
+### Eşzamanlılık ve transaction sınırları
 
-Nakit mutasyonları PostgreSQL transaction advisory kilidi, ardından ATM satır kilidi alır. Bu case-study tercihi aynı kartın farklı ATM'lerde limit aşmasını, stok yarışlarını ve worker/bakım kilit tersliğini önler; bağımsız ATM mutasyonlarını da seri çalıştırdığı için yüksek trafik için ölçeklenmez. Bakiye, rezervasyon, ledger, quote ve confirm sonucu aynı transaction'dadır. Banknot seçimi önce minimum banknotlu kupür dağılımını, sonra fiziksel doluluk önceliğiyle kaset dağılımını bulur. Ayrıntılar ve ölçek sınırları [DECISIONS](docs/DECISIONS.md) içindedir. Otomatik migration case study'nin şartıdır; Compose tek API instance'ı çalıştırır.
+Nakit mutasyonları önce PostgreSQL transaction advisory lock (`pg_advisory_xact_lock`), ardından ATM satırında pessimistic row lock (`FOR UPDATE`) alır. Ortak kilit sırası, stok yarışlarını ve aynı kartın farklı ATM'lerde günlük limit aşmasını önler; rezervasyon temizliği ile bakım geçişlerinin aynı protokolü izlemesini sağlar.
 
-Kart + para birimi için İstanbul iş gününde tamamlanan çekimler ve halen açık quote'ların en yüksek seçenek tutarı limitten düşülür: TRY 20.000, USD/EUR 1.000. Quote gece yarısında iptal edilmez; 60 saniyesi boyunca yeni günün limitinden de yer ayırır ve çekim confirm gününe yazılır. Kart girdisi 12-19 ASCII rakam olmalıdır; boşluk veya ayraç kabul edilmez. Yalnızca HMAC-SHA256 kimliği kalıcıdır. Alt/üst planlar kaset başına maksimum banknot adediyle rezerve edilir; fiziksel rezervasyon değeri günlük limit rezervasyonuyla aynı olmak zorunda değildir.
+Bakiye, rezervasyon, hareket defteri, quote ve confirm sonucu ilgili mutasyon transaction'ında birlikte kaydedilir. Gerekli düşük stok olayları da aynı transaction'a dahil edilir. Günlük limit hesabı ile stok doğrulaması kilit altında yapılır; doğrulama ve yazım arasına başka bir nakit mutasyonu giremez.
 
-Müşteri yatırması yalnızca hizmette yapılır. Eşleşen recycling kasetleri fiziksel doluluk artan, eşitlikte slot artan sırada kullanılır; taşma deposit kasetine, sığmayan veya tanınmayan banknotlar iadeye gider. İstek sırasındaki gruplar kapasiteyi paylaşır. Her grubun kabul + iade adedi girdi adedine eşittir. Rezerve banknotlar boş kapasite yaratmaz. Bakiye ve yalnızca kabul edilen banknotların DEPOSIT hareketleri atomiktir. Endpoint yeni tablo gerektirmedi.
+Global advisory lock, bağımsız ATM mutasyonlarını da seri çalıştırır. Bu tercih, tutarlılık kurallarını tek bir kilit protokolüyle denetlenebilir kılarken işlem paralelliğini sınırlar. Yüksek trafik altında kart bazlı kilitler ve deterministik çoklu ATM kilit sırası yeniden değerlendirilmelidir. Kararların gerekçeleri ve ölçek sınırları [DECISIONS](docs/DECISIONS.md) içindedir.
 
-Mutabakat yalnızca bakımda, sıfır rezervasyonla ve beş kasetin tam fiziksel envanteriyle yapılır. Counted-stored farkı yalnızca yeni RECONCILIATION_ADJUSTMENT hareketiyle uygulanır; eski ledger kayıtları değişmez. Sayım snapshot'ı (fark sıfır olsa bile), stok ve hareketler tek transaction'dadır. Consistency endpoint fiziksel/rezerve deltaları toplayıp saklanan adetlerle PostgreSQL REPEATABLE READ snapshot'ında karşılaştırır; sorgular arasına giren nakit işlemi sahte fark oluşturmaz. Endpoint fark bulursa veri onarmaz. Temel rapor para/kupür ve kaset kırılımında fiziksel/rezerve/kullanılabilir adet ve TRY/USD/EUR ayrı tutarları verir; deposit kullanılabilir muhasebe bakiyesi çekilebilir değildir.
+### Banknot seçimi ve rezervasyon
 
-Rapor ayrıca `overallTry` (ATM), `totalTry` (kaset) fiziksel/rezerve/kullanılabilir TRY tutarlarını ve kullanılan `exchangeRates` listesini verir. Genel toplam `overallTry.onHandAmount` alanıdır; envanter ve kurlar aynı REPEATABLE READ snapshot'ından okunur. Kaset `lowCash` anlık durumdur; `/api/atms/{id}/alerts` olay geçmişidir.
+Banknot seçimi, sınırlı stok üzerinde minimum banknot sayısını bulan bounded dynamic programming algoritması kullanır. Tam tutar ödenemediğinde en yakın ödenebilir alt ve üst seçenekler hesaplanır; üst seçenek kalan günlük limite uyar. Aynı para/kupürde kaset dağılımı fiziksel doluluk önceliğine göre yapılır ve yalnız kullanılabilir stok tüketilir.
 
-Low-cash olayları EF SaveChanges hook'unda original ve final Available karşılaştırılarak aynı cash transaction'ında kaydedilir. Böylece AtmStore dışındaki quote/confirm ve expiry yolları da kapsanır; confirm'in ara release/withdrawal adımları sahte alarm yaratmaz. Worker her saniye20due olayı, olay başına transaction ve FOR UPDATE SKIP LOCKED row lock ile işler. Sink yapılandırılmış log yazar; başarı SentAt, hata5saniye retry. DB commit başarısızlığında log tekrarı olabilir; eventId korelasyon sağlar. Gerçek test log sonrası sent failure'da aynı eventId'nin tekrar yayınlandığını gösterir; teslim en az bir kezdir.
+Fiziksel adet `OnHand`, rezerve adet `Reserved`, kullanılabilir adet `Available = OnHand - Reserved` olarak ayrılır. Alt/üst seçenekler için her kasette gereken maksimum banknot adedi rezerve edilir. Müşteri confirm işlemiyle bir seçeneği kabul ettiğinde seçilen plan uygulanır ve quote'un bütün rezervasyonu serbest bırakılır. Cancel ve süre dolumu fiziksel nakit tüketmeden rezervasyonu bırakır. Quote geçerliliği 60 saniyedir; süre kontrolü hem işlem anında hem arka plan temizliğinde uygulanır.
+
+### Günlük limit, kart kimliği ve idempotency
+
+Kart ve para birimi bazında, İstanbul iş gününde tamamlanan çekimler ile açık quote'ların en yüksek seçenek tutarı günlük limitten düşülür: TRY 20.000, USD/EUR 1.000. Fiziksel rezervasyonun parasal değeri, günlük limit için ayrılan tutardan farklı olabilir. Quote gece yarısında iptal edilmez; 60 saniyelik geçerliliği boyunca yeni günün limitinden de yer ayırır. Gerçekleşen çekim confirm gününe yazılır.
+
+Kart girdisi 12-19 ASCII rakamdan oluşur; boşluk veya ayraç kabul edilmez. Kalıcı kayıtlarda HMAC-SHA256 kimliği kullanılır; plaintext kart numarası veritabanına ve uygulama loglarına yazılmaz.
+
+Confirm sonucunun HTTP status ve response body bilgileri `Idempotency-Key` ile kalıcı olarak saklanır. Aynı anahtar ve aynı istek ilk sonucu döndürür; farklı istekle anahtarın yeniden kullanılması conflict üretir. İşlenen 200/400/404/409 sonuçları replay kapsamındadır; rollback edilen 500 sonucu kalıcı başarı kaydı oluşturmaz. Böylece yeniden başlatma ve istemci tekrarlarında ikinci bir nakit çıkışı engellenir.
+
+### Para yatırma ve kapasite
+
+Müşteri yatırması yalnızca hizmetteki ATM'de yapılır. Eşleşen recycling kasetleri fiziksel doluluk artan, eşitlikte slot artan sırada kullanılır. Taşma deposit kasetine yönlendirilir; kapasiteye sığmayan veya tanınmayan banknotlar iade edilir. İstek grupları gönderim sırasıyla kapasiteyi paylaşır.
+
+Her girdi grubunda kabul edilen ve iade edilen adetlerin toplamı girdi adedine eşittir. Rezerve banknotlar fiziksel kasette bulunduğundan boş kapasite yaratmaz. Bakiye değişiklikleri ile yalnızca kabul edilen banknotların `DEPOSIT` hareketleri atomik olarak kaydedilir.
+
+### Append-only hareket defteri ve mutabakat
+
+Hareket defteri, fiziksel ve rezerve adet değişimlerini ayrı deltalarla saklar. EF Core kayıt korumasına ek olarak PostgreSQL trigger'ı mevcut hareketlerin `UPDATE`, `DELETE` ve `TRUNCATE` işlemlerini reddeder. Nakit düzeltmeleri yeni hareketlerle temsil edilir; geçmiş kayıtlar değiştirilmez.
+
+Mutabakat yalnızca bakım durumunda, sıfır rezervasyonla ve beş kasetin tam fiziksel envanteri üzerinden yapılır. `counted - stored` farkı yeni `RECONCILIATION_ADJUSTMENT` hareketiyle uygulanır. Sayım snapshot'ı, stok ve hareketler aynı transaction'da kaydedilir; fark sıfır olsa da sayım geçmişi korunur.
+
+Consistency endpoint'i fiziksel/rezerve hareket deltalarını toplayıp saklanan adetlerle PostgreSQL `REPEATABLE READ` snapshot'ında karşılaştırır. Sorgular arasına giren nakit işlemi sahte tutarsızlık üretmez. Bu endpoint salt okunur bir denetimdir; tespit edilen farkı otomatik onarmaz.
+
+### Raporlama ve transactional outbox
+
+Rapor; para/kupür ve kaset kırılımında fiziksel, rezerve ve kullanılabilir adetleri, TRY/USD/EUR tutarlarını, ATM seviyesinde `overallTry`, kaset seviyesinde `totalTry` ve kullanılan `exchangeRates` listesini döndürür. Genel fiziksel bakiye `overallTry.onHandAmount` alanıdır. Envanter ve kurlar aynı `REPEATABLE READ` snapshot'ından okunur. Deposit kasetinin kullanılabilir muhasebe bakiyesi, para çekiminde kullanılabilecek stok anlamına gelmez.
+
+Kasetteki `lowCash` alanı anlık durumdur; `/api/atms/{id}/alerts` olay geçmişini sunar. Düşük stok olayları EF Core `SaveChanges` sınırında önceki ve son `Available` değerleri karşılaştırılarak nakit mutasyonuyla aynı transaction'da outbox'a yazılır. Bu ortak sınır quote, confirm ve süre dolumu yollarını da kapsar. Confirm'in ara rezervasyon bırakma ve para çekme adımları yerine net değişim değerlendirilir.
+
+Arka plan worker'ı her saniye en fazla 20 işlenmeye hazır olayı, olay başına transaction ve `FOR UPDATE SKIP LOCKED` ile işler. Row lock, bir olayın paralel worker'lar tarafından aynı anda yayınlanmasını önler. Varsayılan sink yapılandırılmış log üretir; başarılı işlemde `SentAt` kaydedilir, yayın hatasında olay 5 saniye sonra yeniden denenir.
+
+Yayın başarılı olup `SentAt` commit'i başarısız kalırsa aynı olay tekrar yayınlanabilir. Teslim semantiği en az bir kezdir; `eventId` tekrarların korelasyonunu sağlar. Bu hata penceresi gerçek veritabanı testinde aynı `eventId` ile ikinci yayın gözlenerek doğrulanmıştır.
+
+### HTTP sözleşmesi ve sağlık kontrolleri
+
+HTTP hataları `ProblemDetails` modeliyle `code`, `traceId` ve `instance` alanlarını taşır. Domain doğrulama hataları 400, bulunamayan ATM 404, durum ve stok çelişkileri 409 döndürür. Beklenmeyen çalışma zamanı hataları merkezi exception handler üzerinden işlenir.
+
+`/health`, DB bağlantısını ve bekleyen migration bulunmadığını kontrol eder; başarısızlıkta 503 / `DATABASE_NOT_READY` döner. `/health/live` veritabanından bağımsız process canlılığını gösterir.
 
 ## Varsayımlar
 
-Gün sınırı, alternatif rezervasyonları ve mutabakat yorumları [DECISIONS](docs/DECISIONS.md) içinde kaynak gereksinimlerden ayrı işaretlenmiştir. Docker imajlarında .NET 10 ve PostgreSQL 17 major etiketleri kullanılır; digest sabitlemesi henüz yapılmadı. NuGet paket sürümleri proje dosyalarında sabittir.
+İş günü sınırı, alternatif rezervasyonları, mutabakat ve alarm politikaları [DECISIONS](docs/DECISIONS.md) içinde gerekçeleriyle belgelenmiştir.
 
-Tam sayımda recycling için konfigüre kupürün sıfır dahil açık sayımı gerekir. Deposit notes boş olabilir; belirtilmeyen para/kupürler sıfır kabul edilir. Onay beklemeyen aynı sayımı tekrar göndermek yeni geçmiş oluşturur; mutabakat idempotency desteği yoktur. Sayımda X-User yoksa system kullanılır ve authentication sağlanmaz. Farklar ATM'yi bakımda bırakır; onay sonrası hizmete dönüş ayrı state isteğiyle yapılır.
-
-v0.8.0'da toplam fark `sum(abs(delta * denomination * rateToTry))` olarak değerlendirilir; artı/eksi farklar birbirini gizlemez. Tam 1.000 TRY onay istemez. Kullanılan kurlar ve fark değeri sayımda sabitlenir. Approval için X-User zorunludur; aktör trim/lowercase edilir ve yalnız ASCII harf/rakam ile . _ - @ kabul edilir. ALICE ve alice aynı kullanıcıdır. Onaylama nakdi yeniden değiştirmez; aynı onaylayan tekrarında ilk timestamp korunur. Pending sayım varken yeni sayım yapılamaz. Eski v0.7.0 sayımlar LEGACY_COMPLETED olarak korunur; tarihsel kur snapshot'ı bilinmediğinden geriye dönük onay engeli üretilmez. Bunlar [DECISIONS](docs/DECISIONS.md) içinde kaynak kurallardan ayrı açıklanır.
-
-Low-cash alarmı >=10'dan<10'a geçişte ve ilk LOADED->IN_SERVICE sırasında düşük stok için üretilir. Aynı düşük durumda tekrar alarm yoktur; >=10'a yükselince yeniden düşüş tetiklenebilir. Deposit-only hariçtir. Eski DB'deki düşük stoklar için migration geçmiş olay uydurmaz; report bayrağı görünürdür, sonraki geçiş yeni alarm üretir. Bu tekrar/ilk hizmet politikası kaynakta belirtilmediği için varsayım olarak belgelenir.
+- **Tam sayım:** Recycling kasetinde konfigüre kupürün sıfır dahil açık sayımı gerekir. Deposit `notes` listesi boş olabilir; belirtilmeyen para/kupürler sıfır kabul edilir. Onay beklemeyen sayımın tekrar gönderilmesi yeni geçmiş oluşturur. Mutabakat ATM'yi bakımda bırakır; onay sonrası hizmete dönüş ayrı state isteğidir.
+- **Onay eşiği:** Toplam fark `sum(abs(delta * denomination * rateToTry))` ile hesaplanır; artı ve eksi farklar birbirini gizlemez. Tam 1.000 TRY onay gerektirmez; üzeri farklı operatör onayı gerektirir. Kullanılan kurlar ve fark değeri sayımda sabitlenir. Bekleyen onay varken yeni sayım ve hizmete dönüş engellenir.
+- **Operatör beyanı:** Sayımda `X-User` yoksa `system` kullanılır; onayda `X-User` zorunludur. Aktör trim/lowercase ile normalize edilir ve yalnız ASCII harf/rakam ile `.`, `_`, `-`, `@` kabul edilir. `ALICE` ve `alice` aynı operatördür. Onay nakdi yeniden değiştirmez; aynı onaylayan tekrarında ilk timestamp korunur.
+- **Tarihsel sayımlar:** Kur snapshot'ı bulunmayan eski sayımlar `LEGACY_COMPLETED` olarak korunur. Bugünkü demo kurla tarihsel fark yeniden değerlendirilmez ve geriye dönük onay engeli üretilmez.
+- **Alarm politikası:** Recycling `Available` değeri 10 veya üzerindeyken 10'un altına düştüğünde ve ilk `LOADED -> IN_SERVICE` geçişinde düşük stok varsa olay üretilir. Aynı düşük durumda tekrar alarm oluşmaz; stok 10 veya üzerine yükseldiğinde yeni düşüş tetiklenebilir. Deposit-only kaseti kapsam dışıdır. Migration geçmiş düşük stoklar için olay oluşturmaz; anlık rapor bayrağı bu durumu gösterir.
+- **Bağımlılık sürümleri:** Docker image'larında .NET 10 ve PostgreSQL 17 major etiketleri kullanılır; digest sabitlemesi uygulanmamıştır. NuGet paket sürümleri proje dosyalarında sabittir.
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Kaynak gereksinimleri bakımından bilinen tamamlanmamış geliştirme yoktur. Kurlar sabit seed verisidir; canlı kur ve kur yönetimi endpoint'i yoktur. Global transaction kilidi, bütün expired quote'ları tarayan worker/işlem temizliği ve quote toplamlarıyla hesaplanan limit bu küçük kapsamın ölçek sınırlamalarıdır. Quote/idempotency/sayım/outbox verileri süresiz saklanır; arşivleme, idempotency saklama süresi ve HMAC anahtar rotasyonu uygulanmadı. Outbox log sink'i kullanır; harici bildirim sistemi/dead-letter yoktur, başarısız sink 5 saniye aralıkla tekrar denenir. Log/sent arasındaki crash tekrar log üretebilir. SaveChanges alarm hook'u tam aggregate'i yükleyen uygulama protokolünü izler; dış SQL yazımlarını izleyen trigger değildir. JSON olarak saklanan plan/sayım satırlarının DB içinde kaset başına FK doğrulaması yoktur; uygulama domain doğrulaması yapar. Deposit ve mutabakat endpoint'lerinde idempotency yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu yapılmadı. Consistency kontrolü bakiye/ledger drift'ini tespit eder; otomatik veri onarımı veya DB kapasite constraint'lerinin yerini alma amacı taşımaz. Swagger açıktır; authentication ödevde zorunlu değildir ve uygulanmadı.
+Tanımlanan işlevsel kapsamın geliştirme ve teslim doğrulaması tamamlanmıştır. Mevcut uygulamanın dağıtım ve ölçek sınırları aşağıdadır:
 
-## AI kullanımı
+- **Kimlik doğrulama:** Sistem sınırları ve kapsamı gereği kimlik doğrulama mekanizması trusted service context varsayımıyla ele alınmış; odak doğrudan çekirdek nakit mutasyonları ve finansal işlem tutarlılığına verilmiştir. API içinde authentication/authorization uygulanmamıştır. `X-User` operatör beyanıdır ve doğrulanmış kimlik sağlamaz. Swagger erişime açıktır.
+- **Ölçek:** Global transaction kilidi nakit mutasyonlarını seri çalıştırır. Süresi dolmuş quote'ların toplu taranması ve günlük limitin quote toplamları üzerinden hesaplanması yüksek hacim için optimizasyon gerektirir.
+- **Saklama ve sır yönetimi:** Quote, idempotency, sayım ve outbox kayıtları süresiz saklanır. Arşivleme, retention politikası ve HMAC anahtar rotasyonu uygulanmamıştır.
+- **Outbox teslimi:** Varsayılan hedef log sink'idir; harici bildirim sistemi ve dead-letter mekanizması yoktur. Hatalı yayınlar 5 saniye aralıkla yeniden denenir. Yayın ile `SentAt` commit'i arasındaki kesinti tekrar log üretebilir.
+- **Yazım protokolü:** Alarm hook'u tam aggregate'i yükleyen uygulama protokolüne dayanır; dış SQL yazımlarını izlemez. JSON olarak saklanan plan ve sayım satırlarına DB seviyesinde kaset başına foreign key doğrulaması uygulanmaz; bu kurallar domain katmanında doğrulanır.
+- **Tekrar gönderim:** Deposit ve mutabakat endpoint'lerinde idempotency yoktur. İstemci tekrarları yeni işlem olarak değerlendirilir; confirm için kalıcı idempotency sağlanır.
+- **Dış sistemler:** Kurlar sabit başlangıç verisidir; canlı kur ve kur yönetimi endpoint'i yoktur. Banknot tanıma girdisi simüledir; fiziksel okuyucu entegrasyonu uygulanmamıştır.
+- **Denetim kapsamı:** Consistency kontrolü bakiye/ledger farkını tespit eder. Otomatik veri onarımı yapmaz ve DB kapasite constraint'lerinin yerini almaz.
 
-Codex; gereksinim analizi, başlangıç kayıtları, uygulama altyapısı ve testler için kullanıldı. Kullanıcı geri bildirimiyle dakika bazlı plan kaldırıldı. İlk test bağımlılığındaki NuGet güvenlik uyarısı paket güncellenerek giderildi; kesinti testindeki paylaşılan veritabanı bağımlılığı test izolasyonuyla düzeltildi. Ayrıntılı sonuçlar [WORKLOG](docs/WORKLOG.md) içinde tutulur.
+## Yapay Zekâ Kullanımı ve Doğrulama
 
-v0.5.0 çekim akışı GPT-6.1-Sol alt ajanıyla geliştirildi ve ana ajan tarafından incelendi. İnceleme sonucunda rezervasyonun tüm girdileri mutasyon öncesinde doğrulandı, kalıcı hata yanıtlarına traceId/instance eklendi ve İstanbul iş günü hesabı korundu. Worker, rollback ve süre sınırı testleriyle bu noktalar doğrulandı.
+Üretken yapay zekâ, gereksinim analizi, uygulama ve test geliştirme ile teknik dokümantasyonda geliştirme hızlandırıcısı olarak kullanılmıştır. Tasarım ve doğrulama sahipliği mühendislik sorumluluğunun parçası olarak ele alınmış; eşzamanlılık sınırları, boundary ve edge-case davranışları, platform uyuşmazlıkları ve finansal veri tutarlılığı kuralları bağımsız mühendislik testleriyle doğrulanmıştır. Algoritma sonuçları bağımsız exhaustive enumeration ile karşılaştırılmış; kilit, rollback, idempotent replay ve outbox hata pencereleri gerçek PostgreSQL üzerinde test edilmiş; PostgreSQL ile .NET arasındaki zaman hassasiyeti farkı mikrosaniye normalizasyonuyla giderilerek replay tutarlılığı doğrulanmıştır. Tespit edilen sorunlar, uygulanan düzeltmeler ve gerçek test sonuçları [WORKLOG](docs/WORKLOG.md) altında şeffaf biçimde belgelenmiştir.
 
-v0.8.0 kur/onay akışı Codex ile geliştirildi. Testler PostgreSQL'in enum metni sıralamasının beklenen TRY/USD/EUR sırasından farklı olduğunu ve .NET timestamp hassasiyetinin DB'den yüksek olması nedeniyle approval replay farkını ortaya çıkardı. API sıralaması ve kayıt öncesi mikrosaniye normalizasyonu düzeltilerek doğrulandı; eski sayımların migration'ında tarihsel kur uydurulmaması açıkça belgelendi.
-
-v0.9.0 rapor/alarm/outbox da Codex ile geliştirildi. İncelemede quote/expiry'nin AtmStore dışında da nakit değiştirdiği dikkate alınıp olay üretimi ortak SaveChanges sınırına bağlandı. Confirm'in ara release/withdrawal adımları yerine net değişim kullanıldı; log ve sent commit'i arasındaki tekrar olasılığı testle gösterilerek belgeye işlendi.
-
-v1.0.0 kapanışında Codex temiz kaynak/boş DB doğrulaması, Release testleri, tüm Postman collection'ları ve belge incelemesi için kullanıldı. Uygulama iş kuralları değiştirilmedi; sürüm alanları ve altyapı collection beklentisi 1.0.0'a taşındı. Test sonuçları ve karşılaşılan araç sorunları teknik günlükte tutuldu.
-
-## Teknik review kayıtları
+## Teknik inceleme kayıtları
 
 - [İstek geçmişi ve proje bağlamı](docs/PROJECT_CONTEXT.md)
 - [SemVer roadmap](docs/ROADMAP.md)
