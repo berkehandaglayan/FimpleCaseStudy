@@ -300,3 +300,40 @@ Değerlendirme ölçüsü: Automated tests başlığındaki iki davranış ayrı
 
 Bu kayıt v0.5.0 geliştirme commit'ine dahil edilir. Commit ve push komutlarının gerçek sonucu Git çıktısından doğrulanarak kullanıcıya bildirilecek; başarısız gönderim başarılı gibi kaydedilmeyecek. Secret, yerel .env, test logları ve geçici dosyalar commit kapsamına alınmaz.
 Son dosya kontrolü: `git diff --check` exit 0; fazladan EOF boş satırları temizlendi. Git yalnızca mevcut LF/CRLF dönüşüm uyarılarını gösterdi. `docker compose ps` API Up ve PostgreSQL healthy durumunu doğruladı.
+
+## 2026-10-12 / 015 - Müşteri yatırması, taşma ve iadeler
+
+Hedef sürüm: v0.6.0, uygulandı ve doğrulandı. Önceki v0.5.0 commit'i dee8f00 GitHub'a başarıyla gönderilmişti; çalışma başlangıcında HEAD ve origin/main aynı, çalışma ağacı temizdi. Bu adım kullanıcı tarafından başlatıldı, alt ajan kullanılmadı.
+
+Değişen bileşenler ve gerekçeler:
+
+- `Domain/Cash/Deposit.cs`: okuyucu girdi grubu, kaset yerleşimi, iade ve receipt tipleri. Bilinmeyen para/kupür saklanabilir fakat kabul edilmez; recognized=false için değer uydurulmaz. InputIndex her grubun gönderilen = kabul + iade hesabını sağlar.
+- `Domain/Cash/Atm.cs`: IN_SERVICE kontrolü; 100 grup/10.000 banknot ve pozitif adet/ham currency boyut sınırları; bütün girdi doğrulandıktan sonra mutasyonsuz yönlendirme planı. Aynı para/kupür recycling kasetleri düşük fiziksel doluluk, eşitlikte slot sırasıyla kullanılır; kalan deposit'e, kapasiteyi aşanlar iadeye gider. Karma deposit bütün kupürlerde ortak100 sınırına uyar. Grup sırası ve duplicate girdiler kalan kapasiteyi paylaşır. Rezerve nakit kapasitede yer kaplamaya devam eder.
+- Kabul planı kaset/para/kupür bazında gruplanarak fiziksel adet ve DEPOSIT ledger satırları birlikte üretilir. İade edilen notlar nakit hareketi yaratmaz. Tam iade200 ve sıfır hareket geçerlidir. İşlem kimliği response ve ledger arasında korelasyon sağlar.
+- `Application/Atms/DepositRequest.cs`, `AtmService.cs`, `Api/AtmEndpoints.cs`: POST /api/atms/{id}/deposits; mevcut AtmStore UpdateAsync üzerinden global gate -> ATM satır kilidi -> bakiye+ledger commit. Receipt yalnızca başarılı DB commit sonrası döner. Geçersiz batch400, olmayan ATM404, yanlış state409.
+- Yeni entity/tablo gerekmedi; DEPOSIT mevcut enum/check içinde zaten bulunduğundan migration eklenmedi. Sürüm metadatası ve API info0.6.0 oldu.
+- `DepositTests.cs` ve `DepositApiTests.cs`: unit kuralları; gerçek DB yönlendirme/ledger/ATM izolasyonu, paralel yatırma, yatırma-confirm yarışı, zorlanmış ledger hatasında rollback ve API hata modelleri.
+- `Deposits.postman_collection.json`: kısmi kabul ve iade8istek/19kontrol. `Withdrawals.postman_collection.json`: confirm sonrası yatırma eklendi; final stok beklentisi güncellendi,16istek/37kontrol. Infra collection0.6.0 beklentisi güncellendi. README/API/ADR-011/ROADMAP/REQUIREMENTS gerçek kapsamla güncellendi.
+
+Karşılaşılan sorunlar:
+
+1. Entegrasyon testindeki params dizisine tek target-typed new girdisi C# CS8752 verdi. DepositedNote tipi açık yazıldı; uygulama kodu etkilenmedi.
+2. Tam koşuda60unit ve35/38integration geçti; üç yeni testin istemcisi API'nin string currency değerini enum'a deserialize edemedi. Test istemcisinin JsonStringEnumConverter ayarı eklendi. Başarısız sonuç saklandı; yalnızca değişen DepositApiTests altı vaka yeniden çalıştırıldı ve6/6geçti. Önceki32 test tam koşuda başarılıydı; tüm paketin son koşusu sıfır hata gibi yazılmıyor. Böylece60unit ve38farklıintegration davranışı başarıyla doğrulanmıştır.
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| Unit projesi ve tam solution koşusundaki unit bölümü | 60/60 başarılı;12yeni yatırma vakası |
+| Tam solution entegrasyonu | 35/38 başarılı; üç istemci enum deserialization hatası |
+| Düzeltilen DepositApiTests filtreli koşusu | 6/6 başarılı;0atlanan; ham çıktı tmp/v060-deposit-tests.log |
+| Domain yönlendirme | Recycling->deposit->return; eşitlik sırası, duplicate kapasite paylaşımı, bilinmeyenler, hatalı ikinci satırda atomiklik ve girdi başına adet korunumu |
+| Paralel yatırma | Tek boş yere iki adetlik iki istek; toplam1kabul/3iade; kaset100veledger toplamı tutarlı |
+| Deposit-confirm yarışı | İki işlem200; toplam fiziksel adet başlangıçla aynı, rezervasyon0; ledger aynı stokları üretti |
+| Zorlanmış DEPOSIT INSERT hatası | 500SQLayrıntısıyok; bütün kasetler eski bakiyede, DEPOSIT hareketi yok |
+| Docker compose up --build -d | Başarılı; önceki DB volume korunarak API0.6.0başladı |
+| Postman yatırma | 8istek/19assertion,0başarısız,exit0 |
+| Postman çekim+yatırma | 16istek/37assertion,0başarısız,exit0 |
+| Postman altyapı | 4istek/8assertion,0başarısız,exit0 |
+
+Loglar ve geçici Postman üretim script'i tmp altında Git dışındadır. Postman geliştirme ATM'leri bakımda bırakıldı. Case study için tanıma simüle girdidir. Deposit idempotency kaynak B7'de istenmedi ve eklenmedi; tekrar gönderilen istek yeni yatırma olarak işlenir. API/README bu sınırı belirtir.
+
+v0.6.0 henüz commit/push edilmedi. A4/A5/A11 ve B7 müşteri yatırma kapsamı tamamlandı; A8 mutabakat ve A12 toplam bakiye raporu sonraki aşamadadır. Bir sonraki sürüm v0.7.0 nakit denetimi, mutabakat temeli ve rapordur.

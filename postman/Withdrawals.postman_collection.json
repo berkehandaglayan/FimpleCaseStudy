@@ -322,6 +322,43 @@
       "name": "Different body same key"
     },
     {
+      "name": "Deposit after confirmation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/deposits",
+        "body": {
+          "raw": "{\"notes\":[{\"currency\":\"TRY\",\"denomination\":100,\"count\":1},{\"currency\":\"EUR\",\"denomination\":500,\"count\":2},{\"currency\":\"TRY\",\"denomination\":10,\"count\":1}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"deposit ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"accepted count\", () => pm.expect(pm.response.json().acceptedCount).to.eql(3));",
+              "pm.test(\"returned count\", () => pm.expect(pm.response.json().returnedCount).to.eql(1));",
+              "pm.test(\"routing\", () => pm.expect(pm.response.json().placements.map(p=>p.slot)).to.eql([1,5]));",
+              "pm.test(\"unknown returned\", () => pm.expect(pm.response.json().returned[0].reason).to.eql(\"UNRECOGNIZED\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
       "event": [
         {
           "listen": "test",
@@ -482,7 +519,7 @@
           "script": {
             "exec": [
               "pm.test(\"ok\", () => pm.response.to.have.status(200));",
-              "pm.test(\"single withdrawal and all releases\", () => { const c=pm.response.json().cassettes; pm.expect(c.find(x=>x.slot===1).onHand).to.eql(9); pm.expect(c.find(x=>x.slot===3).onHand).to.eql(9); pm.expect(c.every(x=>x.reserved===0)).to.eql(true); });"
+              "pm.test(\"single withdrawal and all releases\", () => { const c=pm.response.json().cassettes; pm.expect(c.find(x=>x.slot===1).onHand).to.eql(10); pm.expect(c.find(x=>x.slot===3).onHand).to.eql(9); pm.expect(c.every(x=>x.reserved===0)).to.eql(true); });"
             ],
             "type": "text/javascript"
           }

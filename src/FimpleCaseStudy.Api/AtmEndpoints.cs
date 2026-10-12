@@ -1,4 +1,5 @@
 using FimpleCaseStudy.Application.Atms;
+using FimpleCaseStudy.Domain.Cash;
 
 namespace FimpleCaseStudy.Api;
 
@@ -34,6 +35,11 @@ public static class AtmEndpoints
             HttpContext context, AtmService service, CancellationToken ct) =>
             Results.Ok(await service.UnloadAsync(id, request, Actor(context), ct)))
             .Produces<AtmView>().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
+
+        group.MapPost("/{id:guid}/deposits", async (Guid id, DepositRequest request,
+            AtmService service, CancellationToken ct) =>
+            Results.Ok(await service.DepositAsync(id, request, ct)))
+            .Produces<DepositReceipt>().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
 
         group.MapPost("/{id:guid}/state", async (Guid id, TransitionAtmRequest request,
             AtmService service, CancellationToken ct) =>

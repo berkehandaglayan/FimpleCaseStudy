@@ -1,0 +1,277 @@
+{
+  "info": {
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "v0.6.0 partial acceptance, routing, returns and state restrictions.",
+    "name": "FimpleCaseStudy - Deposits"
+  },
+  "variable": [
+    {
+      "value": "http://localhost:8080",
+      "key": "baseUrl"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create ATM",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms",
+        "body": {
+          "raw": "{\"name\":\"Postman deposit ATM\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"created\", () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set(\"atmId\", pm.response.json().id);"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Configure",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/configuration",
+        "body": {
+          "raw": "{\"cassettes\":[{\"slot\":1,\"currency\":\"TRY\",\"denomination\":100},{\"slot\":2,\"currency\":\"TRY\",\"denomination\":100},{\"slot\":3,\"currency\":\"TRY\",\"denomination\":20},{\"slot\":4,\"currency\":\"USD\",\"denomination\":100}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"configured\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"CONFIGURED\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Load",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/load",
+        "body": {
+          "raw": "{\"lines\":[{\"slot\":1,\"currency\":\"TRY\",\"denomination\":100,\"count\":99},{\"slot\":2,\"currency\":\"TRY\",\"denomination\":100,\"count\":99},{\"slot\":5,\"currency\":\"EUR\",\"denomination\":50,\"count\":99}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"loaded\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"LOADED\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "In service",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state",
+        "body": {
+          "raw": "{\"state\":\"IN_SERVICE\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"service\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"IN_SERVICE\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Partial deposit and unknown notes",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/deposits",
+        "body": {
+          "raw": "{\"notes\":[{\"currency\":\"TRY\",\"denomination\":100,\"count\":5},{\"currency\":\"EUR\",\"denomination\":500,\"count\":2},{\"recognized\":false,\"count\":2}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"deposited\", () => pm.response.to.have.status(200));",
+              "pm.test(\"accepted three\", () => pm.expect(pm.response.json().acceptedCount).to.eql(3));",
+              "pm.test(\"returned six\", () => pm.expect(pm.response.json().returnedCount).to.eql(6));",
+              "pm.test(\"recycling then deposit\", () => pm.expect(pm.response.json().placements.map(p=>p.slot)).to.eql([1,2,5]));",
+              "pm.test(\"reasons\", () => pm.expect(pm.response.json().returned.map(r=>r.reason)).to.eql([\"CAPACITY_EXCEEDED\",\"CAPACITY_EXCEEDED\",\"UNRECOGNIZED\"]));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Inspect physical cash",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}"
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"ok\", () => pm.response.to.have.status(200));",
+              "pm.test(\"three full cassettes\", () => {const c=pm.response.json().cassettes; [1,2,5].forEach(s=>pm.expect(c.find(x=>x.slot===s).onHand).to.eql(100));});",
+              "pm.test(\"no reservations\", () => pm.expect(pm.response.json().cassettes.every(c=>c.reserved===0)).to.eql(true));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Maintenance",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state",
+        "body": {
+          "raw": "{\"state\":\"MAINTENANCE\"}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"maintenance\", () => pm.response.to.have.status(200));",
+              "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.eql(\"MAINTENANCE\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    },
+    {
+      "name": "Reject customer deposit in maintenance",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "value": "application/json",
+            "key": "Content-Type"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/deposits",
+        "body": {
+          "raw": "{\"notes\":[{\"currency\":\"TRY\",\"denomination\":20,\"count\":1}]}",
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"conflict\", () => pm.response.to.have.status(409));",
+              "pm.test(\"code\", () => pm.expect(pm.response.json().code).to.eql(\"INVALID_ATM_STATE\"));"
+            ]
+          },
+          "listen": "test"
+        }
+      ]
+    }
+  ]
+}

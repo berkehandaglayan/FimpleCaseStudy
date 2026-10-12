@@ -92,7 +92,7 @@ Limit bütün ATM ağı için kart + para birimi + gün bazındadır: TRY 20.000
 
 ## ADR-008 - Değiştirilemez hareket defteri
 
-Durum: v0.3.0 LOAD/UNLOAD ve append-only koruma; v0.5.0 RESERVATION/RESERVATION_RELEASE/WITHDRAWAL uygulandı. Deposit/mutabakat hareket üreticileri ve consistency endpoint planlandı.
+Durum: v0.3.0 LOAD/UNLOAD ve append-only koruma; v0.5.0 RESERVATION/RESERVATION_RELEASE/WITHDRAWAL; v0.6.0 DEPOSIT uygulandı. Mutabakat hareket üreticisi ve consistency endpoint planlandı.
 
 Her hareket kaset, para birimi, kupür, fiziksel adet değişimi, rezervasyon adet değişimi, işlem tipi, ilişkilendirme kimliği ve zamanı taşır. Örneğin rezervasyonda fiziksel delta 0, rezerve delta +n; serbest bırakmada 0 ve -n. Çekimde fiziksel delta -n ve ayrılmış miktarın release hareketi ayrı izlenir; ikili sayım yapılmaz.
 
@@ -120,11 +120,15 @@ PDF'nin adjustment oluşturma sırasıyla uyumlu öneri: fiziksel sayım kabul e
 
 ## ADR-011 - Yatırma ve kapasite
 
-Durum: Planlandı; eşleşen kasetlerin yatırma sırası varsayımdır.
+Durum: v0.6.0 uygulandı. Eşleşen kasetlerin yatırma sırası ve girdi sınırları kaynak PDF'ye ek tasarım varsayımlarıdır.
 
-Eşleşen recycling kasetlerinde boş yer ölçüsünde dağıtım; önerilen sıra düşük doluluk oranı ve eşitlikte kaset sırasıdır. Sonraki taşma deposit kasetine, sığmayan/tanınmayan banknotlar müşteriye döner. Tanınmayan banknotlara bir kupür/değer uydurulmaz. Response bilinen banknotların yerleşimini ve iadeyi ayrı listeler.
+Önceki öneri uygulandı: eşleşen recycling kasetlerinde boş yer ölçüsünde dağıtım; sıra düşük fiziksel doluluk ve eşitlikte slot numarasıdır. Bir girdi grubunda bu sıra alınır, sıradaki kasetin boşluğu doldurulur, ardından diğer kasete geçilir; banknot başına yeniden dengelenmez. Sonraki taşma deposit kasetine, sığmayan/tanınmayan banknotlar müşteriye döner. Tanınmayan banknotlara bir kupür/değer uydurulmaz. Response bilinen banknotların yerleşimini ve iadeyi ayrı listeler.
 
 Rezerve banknotlar fiziksel kasette durduğundan rezervasyon kaset boşluğu yaratmaz. Deposit kapasitesi fiziksel adet üzerinden hesaplanır.
+
+Planlama aggregate'i değiştirmeden yapılır; bütün girdi şekli/adet sınırları önce doğrulanır. Bilinen banknotlardan sığanlar kısmen kabul edilir; kapasite iadesi bütün işlemi hata yapmaz. Gruplar gönderim sırasıyla işlenir; aynı para/kupür birden fazla grup halinde gelebilir ve kalan kapasiteyi paylaşır. İstek sınırları 100 grup ve toplam 10.000 banknottur. Yanıtta inputIndex ile her grubun kabul/iade hesabı izlenir. Bilinmeyen para/kupür veya recognized=false UNRECOGNIZED sayılır; ham girdiye yeni bir değer atanmaz. recognized bilgisi okuyucudan gelen simüle girdidir; hardware entegrasyonu yoktur.
+
+Kabul edilen kaset/para/kupür adetleri birleştirilerek DEPOSIT ledger kaydı oluşturulur. Bakiye/ledger aynı mevcut AtmStore transaction ve global gate içindedir; v0.6.0 için yeni tablo veya migration gerekmedi. B7 yatırma için idempotency istemediğinden bu endpoint yeni istekleri ayrı işlemler sayar; istemci yeniden gönderiminde mükerrer yatırma engeli sağlanmaz. Bu sınır API/README'de belirtilir.
 
 ## ADR-012 - Alarm ve outbox
 

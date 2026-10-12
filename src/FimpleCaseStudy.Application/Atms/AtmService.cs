@@ -29,6 +29,18 @@ public sealed class AtmService(IAtmStore store, TimeProvider clock)
     public async Task<AtmView> UnloadAsync(Guid id, CashRequest request, string actor, CancellationToken ct) =>
         AtmView.From(await store.UpdateAsync(id, atm => atm.Unload(request.Lines, actor, clock.GetUtcNow()), ct));
 
+    public async Task<DepositReceipt> DepositAsync(Guid id, DepositRequest request, CancellationToken ct)
+    {
+        DepositReceipt? receipt = null;
+        await store.UpdateAsync(id, atm =>
+        {
+            var change = atm.Deposit(request.Notes, clock.GetUtcNow());
+            receipt = change.Receipt;
+            return change.Movements;
+        }, ct);
+        return receipt!;
+    }
+
     public async Task<AtmView> TransitionAsync(Guid id, TransitionAtmRequest request, CancellationToken ct) =>
         AtmView.From(await store.UpdateAsync(id, atm => { atm.TransitionTo(request.State); return []; }, ct));
 }

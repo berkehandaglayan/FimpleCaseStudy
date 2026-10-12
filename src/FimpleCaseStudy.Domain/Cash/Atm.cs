@@ -52,6 +52,64 @@ public sealed class Atm
     public IReadOnlyList<CashMovement> Unload(IReadOnlyList<CashLine>? lines, string actor, DateTimeOffset now)
         => ChangeCash(lines, actor, now, loading: false);
 
+    public DepositChange Deposit(IReadOnlyList<DepositedNote>? notes, DateTimeOffset now)
+    {
+        RequireState(AtmState.InService);
+        if (notes is null || notes.Count is < 1 or > 100 || notes.Any(n => n is null ||
+                n.Count is < 1 or > 10_000 || n.Currency?.Length > 32) ||
+            notes.Sum(n => (long)n.Count) > 10_000)
+            throw new DomainException("INVALID_DEPOSIT_NOTES", "Provide 1-100 note groups and at most 10000 positive-count notes.");
+
+        var placements = new List<DepositPlacement>();
+        var returned = new List<ReturnedNote>();
+        var planned = _cassettes.ToDictionary(c => c.Slot, _ => 0);
+        var deposit = _cassettes.Single(c => c.Kind == CassetteKind.Deposit);
+        for (var index = 0; index < notes.Count; index++)
+        {
+            var note = notes[index];
+            Currency? currency = note.Currency?.Trim().ToUpperInvariant() switch
+            {
+                "TRY" => Currency.TRY, "USD" => Currency.USD, "EUR" => Currency.EUR, _ => null
+            };
+            if (!note.Recognized || currency is null || note.Denomination is not (20 or 50 or 100 or 500))
+            {
+                returned.Add(new(index, note.Currency, note.Denomination, note.Count, "UNRECOGNIZED"));
+                continue;
+            }
+            var remaining = note.Count;
+            // Physical cash, including reservations, determines remaining capacity.
+            var targets = _cassettes.Where(c => c.Kind == CassetteKind.Recycling &&
+                    c.Currency == currency && c.Denomination == note.Denomination)
+                .OrderBy(c => c.OnHand + planned[c.Slot]).ThenBy(c => c.Slot).Append(deposit);
+            foreach (var cassette in targets)
+            {
+                var take = Math.Min(remaining, Cassette.Capacity - cassette.OnHand - planned[cassette.Slot]);
+                if (take > 0)
+                {
+                    placements.Add(new(index, cassette.Id, cassette.Slot, currency.Value, note.Denomination.Value, take));
+                    planned[cassette.Slot] += take;
+                    remaining -= take;
+                }
+                if (remaining == 0) break;
+            }
+            if (remaining > 0)
+                returned.Add(new(index, note.Currency, note.Denomination, remaining, "CAPACITY_EXCEEDED"));
+        }
+
+        var operationId = Guid.NewGuid();
+        var movements = new List<CashMovement>();
+        // Apply only after validation/planning. Duplicate input groups share cassette capacity.
+        foreach (var group in placements.GroupBy(p => (p.Slot, p.Currency, p.Denomination)))
+        {
+            var cassette = _cassettes.Single(c => c.Slot == group.Key.Slot);
+            var line = new CashLine(cassette.Slot, group.Key.Currency, group.Key.Denomination, group.Sum(p => p.Count));
+            cassette.ChangePhysicalCount(line, line.Count);
+            movements.Add(new CashMovement(Id, cassette.Id, line, line.Count, MovementType.Deposit,
+                operationId, now.ToUniversalTime(), "system"));
+        }
+        return new(new(operationId, placements.AsReadOnly(), returned.AsReadOnly()), movements.AsReadOnly());
+    }
+
     public void TransitionTo(AtmState target)
     {
         var allowed = (State, target) is

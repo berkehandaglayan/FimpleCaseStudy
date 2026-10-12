@@ -7,14 +7,14 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | ID | Gereksinim | Hedef | Durum | Planlanan kanıt |
 |---|---|---|---|---|
 | A1-A2 | TRY/USD/EUR; yalnızca 20/50/100/500, bozuk para yok | v0.3.0 | Mevcut işlemlerde tamamlandı | Geçerli/geçersiz giriş unit testleri ve JSON boundary entegrasyon testleri |
-| A3-A5 | 5 kaset, her biri 100; 1 karışık deposit-only, 4 tek para/kupür recycling | v0.3.0 | Model/elle nakit yönetimi tamam; müşteri işlemleri sonraki aşamada | Konfigürasyon, toplam deposit kapasitesi, paralel yükleme testleri |
+| A3-A5 | 5 kaset, her biri 100; 1 karışık deposit-only, 4 tek para/kupür recycling | v0.3.0-v0.6.0 | Tamamlandı; model, operatör yükleme, çekim ve müşteri yatırması hazır | Konfigürasyon, karma deposit kapasitesi, yönlendirme, taşma ve paralel yatırma testleri |
 | A6 | 1-2 recycling kaseti döviz için | v0.3.0 | Tamamlandı | 0/3/4 red, 1/2 kabul unit testleri |
 | A7 | Hizmete alınmadan konfigürasyon ve elle yüklenen nakit kaydı | v0.3.0 | Tamamlandı | Unit, gerçek DB lifecycle ve Postman setup akışı |
 | A8 | Fiziksel sayım ve sistem farkının kaydı | v0.7.0 | Planlandı | Mutabakat hareketi testi |
 | A9 | Çekim banknot kırılımı; tam ödenemiyorsa yakın tutar | v0.4.0-v0.5.0 | Tamamlandı; HTTP quote alternatifleri ve confirm bağlı | B3 unit + gerçek DB alternatif/rezervasyon testi |
 | A10 | Müşteri onayından sonra çekim | v0.5.0 | Tamamlandı | Quote fiziksel bakiyeyi değiştirmiyor; lower confirm yalnızca seçilen planı tüketiyor |
-| A11 | Yatırmada eşleşen recycling, diğerleri deposit | v0.6.0 | Planlandı | Yönlendirme testleri |
-| A12 | ATM banknot adedi ve toplam bakiye görüntüleme | v0.7.0 | Planlandı | Rapor doğrulaması |
+| A11 | Yatırmada eşleşen recycling, diğerleri deposit | v0.6.0 | Tamamlandı | Unit, PostgreSQL ve Postman yönlendirme/taşma/iade testleri |
+| A12 | ATM banknot adedi ve toplam bakiye görüntüleme | v0.7.0 | Adet kırılımı GET ATM'de hazır; toplam parasal bakiye raporu bekliyor | Rapor doğrulaması |
 
 ## Part B
 
@@ -26,8 +26,8 @@ Kaynak: Kullanıcının sağladığı 5 sayfalık Project Assignment - Software 
 | B4 | 60 saniye rezervasyon, cancel/confirm, expiry, Idempotency-Key | v0.5.0 | Tamamlandı | 59/60 sınırı, hosted worker, cancel, paralel confirm, restart sonrası byte replay ve rollback |
 | B5 | Kart/para bazında günlük limit; aktif rezervasyon dahil; plaintext kart yok | v0.5.0 | Tamamlandı | TRY/USD/EUR farklı ATM paralel limit; İstanbul gece yarısı; HMAC DB ve yakalanmış log denetimi |
 | B6 | Paralel quote'larda çifte rezervasyon yok | v0.5.0 | Tamamlandı | Gerçek PostgreSQL'de 8 paralel quote: tek başarılı rezervasyon; paralel confirm tek nakit çıkışı |
-| B7 | Tanınmayanları iade; recycling/deposit taşması; ayrıntılı yanıt | v0.6.0 | Planlandı | Kısmi kabul, taşma ve iade testleri |
-| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | LOAD/UNLOAD/RESERVATION/RESERVATION_RELEASE/WITHDRAWAL, EF/DB append-only hazır; deposit/mutabakat ve consistency endpoint bekliyor | Ledger toplamı, rollback, UPDATE/DELETE/TRUNCATE red testleri |
+| B7 | Tanınmayanları iade; recycling/deposit taşması; ayrıntılı yanıt | v0.6.0 | Tamamlandı | 12 yeni unit vakası +6 gerçek DB yatırma testi; Postman 8/19 |
+| B8 | Immutable hareketler, yeniden üretilebilir bakiye, consistency endpoint | v0.7.0 | LOAD/UNLOAD/RESERVATION/RESERVATION_RELEASE/WITHDRAWAL/DEPOSIT, EF/DB append-only hazır; mutabakat ve consistency endpoint bekliyor | Ledger toplamı, rollback, UPDATE/DELETE/TRUNCATE red testleri |
 | B9 | TRY >1.000 farkta başka X-User onayı, hizmete dönüş engeli, kur tablosu | v0.8.0 | Planlandı | Eşik ve ikinci kullanıcı testleri |
 | B10 | Ayrıntılı operasyon raporu, düşük nakit alarmı, transaction outbox, worker | v0.9.0 | Planlandı | Rapor, eşik geçişi, rollback, outbox işleme |
 
@@ -55,11 +55,11 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 | SQL Server veya PostgreSQL | v0.2.0 | PostgreSQL 17 Compose ve Testcontainers üzerinde çalışıyor |
 | API + DB Docker Compose, otomatik başlangıç migration | v0.2.0/v1.0.0 | Altyapı için temiz açılış ve tekrar açılış doğrulandı; final kapsamı yeniden doğrulanacak |
 | Swagger/OpenAPI, ProblemDetails/hata kodu, health | v0.2.0 | Tamamlandı; mevcut ATM/çekim işlemlerinde domain hata kodları ve health testleri hazır |
-| B3 unit testleri | v0.4.0 | 8/8 geçti; toplam 48 unit test başarılı |
-| En az bir gerçek DB entegrasyon testi | v0.2.0/v0.5.0 | 32 gerçek PostgreSQL entegrasyon testi geçti; paralel load/quote/confirm ve farklı ATM kart limiti doğrulandı |
-| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı (4/8), ATM yönetimi (9/18) ve çekim (15/32) geçti; yatırma/mutabakat tam akışı henüz yok |
+| B3 unit testleri | v0.4.0 | 8/8 geçti; toplam 60 unit test başarılı |
+| En az bir gerçek DB entegrasyon testi | v0.2.0-v0.6.0 | 38 farklı test başarılı: tam koşuda önceki 32, düzeltme sonrası yatırma 6/6; ayrıntı WORKLOG |
+| Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Altyapı (4/8), ATM yönetimi (9/18), çekim+yatırma (16/37), yatırma (8/19); mutabakat/rapor tam akışı bekliyor |
 | Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
-| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.5.0 için güncel; final kapsamda tekrar güncellenecek |
+| README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | v0.6.0 için güncel; final kapsamda tekrar güncellenecek |
 
 ## Kullanıcının ek istekleri
 
