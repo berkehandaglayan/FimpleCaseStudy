@@ -17,7 +17,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 | v0.1.0 | Başlangıç ve izlenebilirlik | Ortam incelemesi, Git başlangıcı, roadmap, bağlam ve teknik günlük | Tamamlandı |
 | v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Tamamlandı |
 | v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2 yaşam döngüsü, yükleme/boşaltma ve hareket kaydı temeli | Tamamlandı |
-| v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Planlandı |
+| v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Tamamlandı (Domain; HTTP quote v0.5.0) |
 | v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Planlandı |
 | v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Planlandı |
 | v0.7.0 | Nakit denetimi | Part A mutabakat/rapor, B8 tam hareket defteri ve consistency endpoint | Planlandı |
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. v0.3.0 ATM yönetimi de tamamlandı; sıradaki geliştirme aşaması v0.4.0. Henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. v0.3.0 dahil commit'ler GitHub'a gönderildi. v0.4.0 banknot seçimi tamamlandı; sıradaki geliştirme aşaması v0.5.0. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -62,11 +62,11 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç comm
 
 ## v0.4.0 - Optimal banknot seçimi
 
-- [ ] Veritabanından bağımsız, sınırlı stoklu en az banknot algoritması.
-- [ ] Tam tutar veya en yakın ödenebilir alt/üst alternatif.
-- [ ] Üst alternatifte kalan günlük limit filtresi; limitsiz arama yapmayan sınırlandırılmış problem boyutu.
-- [ ] Aynı para/kupür için yüksek doluluk oranlı kasete öncelik ve deterministik eşitlik bozma.
-- [ ] PDF B3 testlerinin sekizi de geçer; mevcut/rezerve/kullanılabilir stok ayrımı korunur.
+- [x] Veritabanından bağımsız, sınırlı stoklu en az banknot algoritması.
+- [x] Tam tutar veya en yakın ödenebilir alt/üst alternatif.
+- [x] Üst alternatifte kalan günlük limit filtresi; limitsiz arama yapmayan sınırlandırılmış problem boyutu.
+- [x] Aynı para/kupür için yüksek doluluk oranlı kasete öncelik ve deterministik eşitlik bozma.
+- [x] PDF B3 testlerinin sekizi de geçer; mevcut/rezerve/kullanılabilir stok ayrımı korunur.
 
 ## v0.5.0 - Güvenli para çekme
 

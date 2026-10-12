@@ -4,7 +4,7 @@ ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
 
 ## Güncel durum
 
-v0.3.0: altyapıya ATM oluşturma/listeleme, kaset konfigürasyonu, yaşam döngüsü ve operatör nakit yükleme/boşaltma eklendi. LOAD/UNLOAD hareketleri bakiye ile aynı transaction içinde kaydedilir ve değiştirilemez. Çekim, müşteri yatırması ve mutabakat henüz uygulanmadı. API gövdeleri ve kurallar: [API sözleşmesi](docs/API.md).
+v0.4.0: ATM/kaset yönetimine saf banknot seçici eklendi. Sınırlı kullanılabilir stokta en az banknotla tam tutarı veya en yakın alt/üst seçenekleri bulur; sekiz B3 kabul testi geçer. LOAD/UNLOAD hareketleri bakiye ile aynı transaction içinde kaydedilir ve değiştirilemez. Seçici henüz HTTP quote/confirm akışına bağlı değildir; müşteri çekimi, yatırması ve mutabakat uygulanmadı. Mevcut API gövdeleri: [API sözleşmesi](docs/API.md).
 
 ## Çalıştırma
 
@@ -48,7 +48,7 @@ dotnet build --no-restore
 dotnet test FimpleCaseStudy.sln --no-restore
 ```
 
-Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. 24 unit test ve 12 entegrasyon testi geçti. Kapsam: kaset kuralları, lifecycle, karma deposit kapasitesi, atomik yükleme/boşaltma, ATM izolasyonu, paralel yükleme, ledger yazım hatasında rollback, EF/SQL ledger değişmezliği ve altyapı testleri. B3 banknot seçimi testleri sonraki aşamadadır.
+Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. Banknot testleri sekiz B3 örneğini, rezervasyon/limit sınırlarını, doluluk önceliğini, deposit dışlamasını ve 300 sabit seed'li senaryoda bağımsız exhaustive enumeration karşılaştırmasını içerir. Diğer testler kaset kuralları, lifecycle, karma deposit kapasitesi, atomik yükleme/boşaltma, ATM izolasyonu, paralel yükleme, ledger yazım hatasında rollback, EF/SQL ledger değişmezliği ve altyapıyı doğrular. Son çalıştırma sonuçları [WORKLOG](docs/WORKLOG.md) içindedir.
 
 Çalışan API üzerinde Postman altyapı kontrolleri:
 
@@ -70,14 +70,14 @@ dotnet ef migrations add MigrationName --project src/FimpleCaseStudy.Infrastruct
 
 ## Mimari ve temel tasarım kararları
 
-- Domain: ATM aggregate, kasetler, kupür bakiyeleri, yaşam döngüsü ve nakit doğrulamaları.
+- Domain: ATM aggregate, kasetler, kupür bakiyeleri, yaşam döngüsü, nakit doğrulamaları ve bounded dynamic programming banknot seçicisi.
 - Application: AtmService, IAtmStore sınırı, istek/yanıt DTO'ları ve test edilebilir TimeProvider.
 - Infrastructure: EF eşlemeleri/constraint'ler, ATM satır kilidi, transaction, migration, ledger trigger'ı ve sağlık kontrolü.
 - Api: HTTP endpoint'leri, DI composition root, Swagger ve hata yanıtları.
 
 Bilinmeyen endpoint gibi HTTP hataları ProblemDetails ile `code`, `traceId` ve `instance` alanları taşır. `/health` başarısızlığında 503 / `DATABASE_NOT_READY`, `/health/live` ise DB'den bağımsızdır. Beklenmeyen çalışma zamanı hataları exception handler üzerinden işlenir; domain doğrulama hataları 400, bulunamayan ATM 404, durum/stok çelişkileri 409 döndürür.
 
-ATM mutasyonlarında satır kilidi ve LOAD/UNLOAD ledger temeli uygulanmıştır. Banknot algoritması, quote/card-limit kilit sırası ve idempotency [DECISIONS](docs/DECISIONS.md) içinde hâlâ plan olarak kayıtlıdır. Otomatik migration case study'nin şartıdır; mevcut Compose tasarımı tek API instance'ı içindir.
+ATM mutasyonlarında satır kilidi ve LOAD/UNLOAD ledger temeli uygulanmıştır. Banknot seçimi önce minimum banknotlu kupür dağılımını, sonra fiziksel doluluk önceliğiyle kaset dağılımını bulur. Arama belleği istek büyüklüğüyle değil mevcut stok ve verilen kalan limitle sınırlıdır. Seçici stok değiştirmez; kalan günlük limiti hesaplamak çağıran katmanın sorumluluğudur. Quote/card-limit kilit sırası ve idempotency [DECISIONS](docs/DECISIONS.md) içinde plan olarak kayıtlıdır. Otomatik migration case study'nin şartıdır; mevcut Compose tasarımı tek API instance'ı içindir.
 
 ## Varsayımlar
 
@@ -85,7 +85,7 @@ Gün sınırı, alternatif rezervasyonları ve mutabakat yorumları [DECISIONS](
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Part A ve B1-B10 bütünü henüz tamamlanmadı. B3'ün sekiz kabul testi, quote/çekim, müşteri yatırması, günlük limit, ledger consistency endpoint'i, mutabakat/onay, outbox ve tam Postman akışı sıradaki aşamalardadır. Paralel load testi B6'nın quote rezervasyon testi yerine geçmez. Swagger bu yerel case study ortamında açıktır; authentication henüz yoktur ve ödevde zorunlu değildir.
+Part A ve B1-B10 bütünü henüz tamamlanmadı. Quote/çekim, müşteri yatırması, günlük limit takibi, ledger consistency endpoint'i, mutabakat/onay, outbox ve tam Postman akışı sıradaki aşamalardadır. Paralel load testi B6'nın quote rezervasyon testi yerine geçmez. Swagger bu yerel case study ortamında açıktır; authentication henüz yoktur ve ödevde zorunlu değildir.
 
 ## AI kullanımı
 

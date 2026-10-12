@@ -2,7 +2,7 @@
   "info": {
     "name": "FimpleCaseStudy - Infrastructure",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "v0.3.0 altyapı kontrolleri. Ödevin ATM uçtan uca collection'ı değildir."
+    "description": "v0.4.0 altyapı kontrolleri. Ödevin ATM uçtan uca collection'ı değildir."
   },
   "variable": [
     {
@@ -26,7 +26,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
-              "pm.test(\"Response contract\", () => { pm.expect(pm.response.json().version).to.eql(\"0.3.0\"); });"
+              "pm.test(\"Response contract\", () => { pm.expect(pm.response.json().version).to.eql(\"0.4.0\"); });"
             ]
           }
         }

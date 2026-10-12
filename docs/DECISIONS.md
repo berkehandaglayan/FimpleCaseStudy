@@ -26,13 +26,19 @@ Banknot tutarları integer/minor unit veya kesin ondalık temsil ile işlenir; k
 
 ## ADR-003 - Optimal banknot seçimi
 
-Durum: Planlandı.
+Durum: v0.4.0 saf Domain seçicisi uygulandı; sekiz B3 kabul testi geçti. HTTP quote akışına bağlanması v0.5.0 kapsamındadır.
 
 Sınırlı stoklu dinamik programlama ile ulaşılabilir tutarların minimum banknot sayısı ve çözümün geri kurulması hesaplanır. Greedy yaklaşım B3 test 1 gibi örnekleri kaçırır. Problem boyutu toplam kullanılabilir stok ve geçerli limitlerle sınırlandırılacak; kullanıcının istediği sınırsız büyüklükte bir tutara göre bellek ayrılmayacak.
 
 Önce para birimi bazında kupür kombinasyonu, sonra kaset bazında dağıtım yapılabilir. Aynı para/kupüre sahip kasetlerde fiziksel doluluk oranı yüksek olana kullanılabilir stok ölçüsünde öncelik verilir. Eşit dolulukta kaset sırası/ID deterministik bağlayıcıdır. Alternatiflerde de minimum banknot hedeflenecek; bu son tercih PDF'deki exact minimum kuralını genişleten tasarım varsayımıdır.
 
 Kaynak test 1: 50 x 3 ve 20 x 10 varken 160, 50 x 2 + 20 x 3 ile ödenir. İlk iş B3'ün 8 örneğini veritabanından bağımsız unit test olarak kodlamak.
+
+Uygulama ayrıntısı: BanknoteSelector aynı para birimindeki recycling kullanılabilir stoklarını kupüre göre toplar. 10 ortak böleniyle ölçeklenmiş, kupür aşamalı bounded dynamic programming tablosu ve ayrı seçim tablosu kullanılır. Bir aşama yalnızca önceki aşamadan okur; aynı stoğun tekrar kullanılması veya geri kurma zincirinin sonradan bozulması engellenir. Arama sınırı min(toplam kullanılabilir değer, kalan limit) / 10'dur. En çok dört kaset * 100 banknot * 500 değer ile aşama başına en fazla 20.001 hücre bulunur. Bellek O(D*S), süre O(D*S*C); D kupür grubu, S ölçekli sınır, C grup stok üst sınırıdır. İstek int.MaxValue olsa da ona göre tablo ayrılmaz.
+
+Tam tutar varsa yalnızca exact döner. Yoksa pozitif erişilebilir tutarlardan en yakın lower/upper seçilir; upper dahil her seçenek verilen kalan limite uyar. Hiç seçenek yoksa üç alan da null olur; bunu HTTP iş hatasına çevirmek quote kullanım senaryosunun sorumluluğudur. Tutarlar tam para birimi cinsinden int'tir. 10'un katı olmayan istek yuvarlanmaz, alternatif aranır. Minimum banknot sayısı eşitliğinde büyük kupür tercihi deterministiktir.
+
+Kaset dağıtımı aynı kupürde fiziksel OnHand azalan, eşitlikte slot artan sırayla yapılır; her kasetten en fazla Available alınır. Tüm kapasiteler 100 olduğundan fiziksel adet sırası doluluk oranı sırasıdır. Atm overload'ı IN_SERVICE ister ve deposit kasetini dışarıda bırakır. Saf stok overload'ı izole algoritma testleri içindir; tam ATM konfigürasyonu kurallarını tekrar uygulamaz. Hesaplama bakiyeyi veya rezervasyonu değiştirmez.
 
 ## ADR-004 - Alt/üst seçenekler için rezervasyon
 
@@ -44,7 +50,7 @@ PDF iki seçeneği de sunmayı ve sunulan banknotları rezerve etmeyi ister; alt
 
 Bir seçenekte olup diğerinde olmayan kupürler birlikte tutulduğundan fiziksel rezervasyonun toplam değeri en yüksek seçenek tutarından büyük olabilir. Günlük limit ise gerçekleşebilecek en yüksek seçenek tutarını sayar. Onay seçilen planı tüketir ve quote'un bütün rezervasyonunu bırakır; iptal/expiry hiçbir nakit tüketmeden rezervasyonu bırakır.
 
-Alt seçenek 0 ise müşteriye 0 tutarlı çekim önerilmez. Ödenebilir pozitif seçenek yoksa hata döner. Limit üstü ilk istek için hata mı, limit içi alternatif mi sunulacağı API sözleşmesi aşamasında kesinleştirilecek; henüz karara bağlanmış gibi davranılmayacak.
+Alt seçenek 0 ise müşteriye 0 tutarlı çekim önerilmez. Ödenebilir pozitif seçenek yoksa quote katmanının hata döndürmesi planlandı. v0.4.0'da limit üstü ilk isteğin DAILY_LIMIT_EXCEEDED ile reddedilmesi seçildi; sessizce limit içine küçültülmez. Bu ek tasarım varsayımıdır. Seçici kalan limiti parametre alır; kartın günlük kullanımı ve aktif quote yükümlülüğünü DB'den hesaplamak v0.5.0 işidir. Seçici tek başına B5'i uygulamaz.
 
 ## ADR-005 - Transaction ve eşzamanlılık
 

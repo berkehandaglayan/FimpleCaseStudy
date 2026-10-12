@@ -201,3 +201,33 @@ Doğrulamalar ve gerçek sonuçlar:
 Postman çalışmaları yereldir; CLI bulut kimlik bilgisi mesajı yazsa da iki çalıştırma exit 0 ile tamamlandı. Akış create -> configure -> load -> in service -> yasak load -> maintenance -> unload -> inspect -> in service şeklindedir. Demo ATM geliştirme DB'sinde bırakıldı. Testcontainers testleri ayrı geçici DB'ler kullandı. Geçici çalışma logları tmp altında Git dışında tutulur.
 
 Kalan kapsam: B2'nin kaset önceliklendirmesi ve B3 optimal seçim v0.4.0'da; quote/confirm ve kart limiti v0.5.0'da. Bu sürümün parent satır kilidi testi B6'nın tamamlandığını göstermez. LOAD/UNLOAD hareketleri hazır; diğer hareket üreticileri ve consistency endpoint henüz yok. v0.3.0 ayrı geliştirme commit'i olarak kaydedilir; release/tag değildir.
+
+## 2026-10-12 / 011 - GitHub gönderimi ve optimal banknot seçimi
+
+Hedef sürüm: v0.4.0, tamamlandı.
+
+Kullanıcı push yapıp devam etmemizi istedi. `git push origin main` başarılı oldu: uzak main, 5eb5ea8'den 854b7c1'e ilerledi. Böylece v0.2.0 b29c59c ve v0.3.0 854b7c1 GitHub'a gönderildi; force push veya tag kullanılmadı.
+
+Değişen dosyalar ve teknik gerekçeler:
+
+- `Domain/Cash/BanknoteSelector.cs`: RecyclingStock anlık görünümü, kaset bazlı DispenseLine, tutar/nota sayısı taşıyan DispensePlan ve exact/lower/upper sonucu. Saf fonksiyon mevcut/rezerve stokları değiştirmez. ATM overload'ı hizmet durumunu kontrol eder ve deposit kasetini dışlar.
+- Aynı para/kupür kullanılabilir stokları gruplanır. Kupür aşamalı bounded dynamic programming, her tutarın minimum banknot sayısını ve geri kurma seçimini saklar. Ayrı aşamalar stok yeniden kullanımını engeller. Banknotların ortak böleni 10 ile tutar uzayı küçültülür; maksimum tablo genişliği 20.001'dir. Kullanıcı int.MaxValue istese bile istek büyüklüğünde bellek ayrılmaz.
+- Minimum banknotlu kupür planı bulunduktan sonra kasetler fiziksel doluluk azalan, eşitlikte slot artan sırada kullanılır. Rezerve banknotlar dağıtıma dahil edilmez. Böylece minimum banknot hedefi ile aynı kupür kaset önceliği ayrı ve test edilebilir kurallardır.
+- Tam ödeme mümkünse yalnızca exact; değilse pozitif en yakın alt/üst seçenekler döner. Her seçenek kalan limite uyar. İlk istek limiti aşıyorsa conflict kararı ADR-004'e işlendi. Hiç pozitif seçenek yoksa null seçenekler döner; quote katmanının hata eşlemesi sonraki sürümdedir.
+- `BanknoteSelectorTests.cs`: PDF'nin sekiz kabul örneği ayrı testler olarak eklendi. İlave testler limit sınırı, tam rezerve stok, para izolasyonu, fiziksel doluluk ile kullanılabilir adet ayrımı, ters giriş sırasından bağımsız sonuç, deposit dışlama, lifecycle, boş stok, sıfır alternatifin dışlanması, 10'un katı olmayan tutar, geçersiz girdiler ve çok büyük istekleri doğrular.
+- Sabit seed'li 300 senaryo, DP'den bağımsız dört iç içe döngüyle bütün banknot kombinasyonlarını sayan bir referansla karşılaştırıldı. Exact/nearest seçenekleri, minimum banknot sayısı, gerçek toplam ve kaset stok sınırları kontrol edilir. Bu 300 senaryo bir xUnit testinin içindedir; 300 ayrı test olarak sayılmaz.
+- Sürüm metadatası, `/api/info` ve altyapı Postman beklentisi 0.4.0 oldu. README, ROADMAP, REQUIREMENTS ve DECISIONS güncellendi. Bu sürümde HTTP banknot seçimi endpoint'i veya migration eklenmedi.
+
+Doğrulamalar:
+
+| İşlem | Gerçek sonuç |
+|---|---|
+| Unit test projesi | 45 başarılı, 0 başarısız, 0 atlanan; 21 yeni test vakası |
+| `dotnet test FimpleCaseStudy.sln --no-restore --logger 'console;verbosity=minimal'` | 45 unit + 12 gerçek PostgreSQL entegrasyon testi geçti; derleme başarılı |
+| B3 kabul örnekleri | 8/8 başarılı; greedy'nin kaçırdığı 160 örneği dahil |
+| Bağımsız kombinasyon karşılaştırması | 300/300 senaryoda sonuç ve minimum banknot sayısı eşleşti |
+| `docker compose up --build -d` | Başarılı; mevcut DB volume'ü korundu, API yenilendi |
+| Altyapı Postman collection, `--no-report-events` | 4 istek, 8 assertion, 0 başarısız; 0.4.0 ve sağlık kontrolleri geçti |
+| `git diff --check` | Başarılı |
+
+Kalan iş: v0.5.0'da bu seçici quote transaction'ına bağlanacak; kart limitinin DB hesabı, alternatif rezervasyonları, confirm/cancel/expiry, kalıcı idempotency ve paralel quote/confirm testleri eklenecek. Mevcut seçici tek başına gerçek para çekmez veya günlük kart kullanımını takip etmez. API sözleşmesi v0.3.0 yönetim endpoint'leriyle aynı kaldı. Bu aşama geliştirme sürümüdür; release/tag oluşturulmadı.
