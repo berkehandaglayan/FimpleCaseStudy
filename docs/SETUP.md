@@ -78,7 +78,16 @@ Kaynak: [VS Code C# başlangıç rehberi](https://code.visualstudio.com/docs/csh
 
 ## 5. Postman
 
-[Postman indirme sayfasından](https://www.postman.com/downloads/) Desktop uygulamasını kur. Projenin collection ve environment dosyalarını biz oluşturacağız. İlk API geliştirmesinde Swagger da kullanılacak.
+Postman CLI 1.73.0 kurulu ve `postman --version` ile doğrulandı. API senaryolarını komut satırından çalıştırmak için tekrar kurulum gerekmiyor. Görsel arayüzde istek göndermek ve collection incelemek istersen [Postman indirme sayfasından](https://www.postman.com/downloads/) Desktop uygulamasını da kurabilirsin. Desktop kurulumu geliştirmeye başlamanın ön koşulu değil. Projenin collection ve environment dosyalarını biz oluşturacağız. İlk API geliştirmesinde Swagger da kullanılacak.
+
+## Kurulum sonrası güncel durum - 2026-10-12
+
+- Postman CLI: `1.73.0`, çalışıyor.
+- Docker Compose: `v5.5.1`.
+- Docker engine: `29.8.2`, normal kullanıcı izinleriyle erişim doğrulandı. Sandbox içindeki pipe erişim hatası engine arızası değildi.
+- GitHub CLI: standart kurulum konumunda mevcut; kullanıcı tarayıcı girişini tamamladı. `auth status` aktif hesabı ve HTTPS Git protokolünü doğruladı.
+- Yerel Git ile origin erişimi ve `git push -u origin main` başarılı. Initial commit fa5b457 yerelde ve GitHub'da aynı SHA ile doğrulandı.
+- `gh` eski terminalin PATH'inde görünmüyorsa yeni terminal aç veya `& 'C:\Program Files\GitHub CLI\gh.exe' auth login --hostname github.com --git-protocol https --web` komutunu kullan.
 
 ## Kurulumdan sonra ortak kontrol
 

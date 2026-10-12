@@ -97,3 +97,29 @@ Hedef sürüm: v0.1.0.
 - GitHub'a push yapılmadı; yerel CLI kimlik doğrulaması bekleniyor. Repo görünürlüğü veya ayarları değiştirilmedi; release/tag oluşturulmadı.
 
 Uygulama testleri çalıştırılmadı: bu aşamada henüz uygulama kodu yok. Sonraki adım kullanıcı kurulumlarının ardından Docker engine ve GitHub CLI erişimini doğrulamak, başlangıç commit'ini göndermek ve v0.2.0 solution/API altyapısına geçmek.
+
+## 2026-10-12 / 006 - Kullanıcı kurulumlarının kontrolü
+
+Kullanıcı kurulumları yaptığını bildirdi ve Postman'ın ne zaman kurulacağını sordu. Ortamda Postman CLI kurulu olduğu bilgisi komutla doğrulandı.
+
+- `postman --version`: 1.73.0. CLI hazır; Desktop arayüzü ayrı ve şu aşamada isteğe bağlı.
+- `docker compose version`: v5.5.1.
+- `docker info --format '{{.ServerVersion}}'`: sandbox içinde named pipe erişimi reddedildi; izinli tekrar 29.8.2 döndürdü. Docker engine çalışıyor. Bu ayrım kurulum hatası ile ajan erişim kısıtını karıştırmamak için kaydedildi.
+- GitHub CLI executable'ı standart konumda mevcut; hem kısıtlı hem normal kullanıcı izinleriyle `auth status` oturum olmadığını bildirdi.
+- `git ls-remote --symref origin HEAD`: kimlik doğrulama isteği etkileşimsiz terminalde karşılanamadı; uzak geçmiş okunamadı ve push denenmedi.
+- Yerel `main` initial commit'i fa5b457, kontrole başlarken çalışma ağacı temizdi. Bu kayıt ve SETUP güncellemesi henüz yeni commit'e alınmadı.
+
+Sonraki işlem: Kullanıcının GitHub CLI tarayıcı girişini tamamlaması ve `auth setup-git`; ardından initial commit gönderimi. Docker ve Postman CLI tarafında yeniden kurulum gerekmiyor. Uygulama kodu veya testi bu adımda eklenmedi.
+
+## 2026-10-12 / 007 - Initial commit'in GitHub'a gönderilmesi
+
+Hedef sürüm: v0.1.0, tamamlandı.
+
+- Kullanıcı GitHub girişini tamamladığını bildirdi. Normal kullanıcı izinleriyle `gh auth status` aktif berkehandaglayan hesabını ve HTTPS Git protokolünü doğruladı; kimlik bilgisi değerleri dosyalara yazılmadı.
+- Push öncesi `git ls-remote --symref origin HEAD` başarılı ve boş döndü; uzak repoda mevcut branch geçmişi yoktu.
+- `git push -u origin main` başarılı oldu, main dalı oluşturuldu ve yerel dal origin/main'i takip edecek şekilde ayarlandı. Force push kullanılmadı.
+- `git rev-parse HEAD` ve `git ls-remote origin refs/heads/main` aynı SHA'yı döndürdü: fa5b4579d260ea52f46dacce9a6175d455ca3710. Böylece initial commit'in uzak repoya ulaştığı doğrulandı.
+- ROADMAP v0.1.0 tamamlandı olarak güncellendi; SETUP ve REQUIREMENTS'teki eski giriş/push bekleniyor durumları düzeltildi. Önceki başarısız denemeler tarihçe olarak korundu.
+- Bu kayıtlar ayrı bir dokümantasyon commit'inde saklanacak; yayımlanmış initial commit değiştirilmeyecek. Release/tag oluşturulmadı.
+
+Uygulama testi yok: bu adım Git erişimi ve başlangıç teslimini doğrular. Sıradaki adım v0.2.0 kapsamında solution, proje referansları ve API altyapısı.

@@ -14,7 +14,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 
 | Sürüm | Hedef | Kapsam | Durum |
 |---|---|---|---|
-| v0.1.0 | Başlangıç ve izlenebilirlik | Ortam incelemesi, Git başlangıcı, roadmap, bağlam ve teknik günlük | Devam ediyor |
+| v0.1.0 | Başlangıç ve izlenebilirlik | Ortam incelemesi, Git başlangıcı, roadmap, bağlam ve teknik günlük | Tamamlandı |
 | v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Planlandı |
 | v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2, yükleme/boşaltma ve hareket kaydı temeli | Planlandı |
 | v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Planlandı |
@@ -33,9 +33,9 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] SemVer roadmap, gereksinim matrisi ve teknik kayıtları oluştur.
 - [x] Yerel initial commit'i oluştur ve doğrula.
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
-- [ ] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder.
+- [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-Kurulum kullanıcının makinesinde devam edebilir. GitHub kimlik doğrulaması uygulama kodunu yerel geliştirmeyi engellemez; remote teslim adımı ayrıca açık kalır.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. Sıradaki geliştirme aşaması v0.2.0; henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 

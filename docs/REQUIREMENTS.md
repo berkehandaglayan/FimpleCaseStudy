@@ -58,7 +58,7 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 | B3 unit testleri | v0.4.0 | Planlandı |
 | En az bir gerçek DB entegrasyon testi | v0.5.0 | Planlandı |
 | Sıralı uçtan uca Postman collection ve gerekiyorsa environment | v1.0.0 | Planlandı |
-| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Yerel initial commit ve origin hazır; eklentiyle uzak erişim doğrulandı; push bekliyor |
+| Git repo bağlantısı veya ZIP | v0.1.0/v1.0.0 | Initial commit GitHub main dalına gönderildi; uygulama teslimi henüz tamamlanmadı |
 | README: çalıştırma/test, mimari/gerekçe, varsayım, eksikler, AI notu | v1.0.0 | Başlıklar hazır; uygulama sonrası doğrulanacak |
 
 ## Kullanıcının ek istekleri
@@ -68,4 +68,4 @@ Bu örnekler banknot seçiciyi izole test eder; testte listelenmeyen kasetlerin 
 - README'den ayrı teknik review günlüğü: oluşturuldu; `WORKLOG.md`.
 - Teknik kararların gerekçesi: oluşturuldu; `DECISIONS.md`.
 - Kurulum yönergeleri: oluşturuldu; `SETUP.md`.
-- Initial commit'in Codex tarafından oluşturulması: yerelde tamamlandı; GitHub'a gönderim CLI girişi sonrası yapılacak.
+- Initial commit'in Codex tarafından oluşturulması: tamamlandı; fa5b457 GitHub main dalında doğrulandı.
