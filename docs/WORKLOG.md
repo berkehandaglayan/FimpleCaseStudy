@@ -162,3 +162,42 @@ Doğrulama kanıtları:
 | `docker compose ps` | API Up, DB healthy; localhost 8080/5432 |
 
 v0.2.0 tamamlandı. API ve PostgreSQL inceleme için çalışır bırakıldı. Henüz bu aşama için Git commit/push veya release/tag yapılmadı. Sonraki aşama v0.3.0: ATM/kaset modeli, geçerli konfigürasyonlar, lifecycle, yükleme/boşaltma ve hareket kaydının temeli. B3 kabul testleri ve Part B concurrency kanıtı henüz tamamlanmış değildir.
+
+## 2026-10-12 / 009 - Altyapı commit'i
+
+Kullanıcı commit edip geliştirmeye devam etmemizi istedi. v0.2.0, `b29c59c` / `feat: bootstrap v0.2.0 API and PostgreSQL infrastructure` commit'i olarak kaydedildi. Staged whitespace kontrolünün bulduğu dosya sonu fazladan boş satırlar temizlendi. Uzak geçmiş değiştirilmedi; bu adımda push veya tag yapılmadı.
+
+## 2026-10-12 / 010 - ATM yaşam döngüsü ve atomik nakit yönetimi
+
+Hedef sürüm: v0.3.0, tamamlandı.
+
+Değişen bileşenler ve teknik gerekçeler:
+
+- `Domain/Cash`: Atm aggregate, beş Cassette, para/kupür bazlı CassetteBalance ve CashMovement. Konfigürasyon, kapasite, lifecycle, load/unload ve aktör doğrulamaları HTTP/EF bağımlılığı olmadan uygulanır. Bir satır hatalıysa batch'in önceki satırları da uygulanmaz.
+- `Application/Atms`: IAtmStore, AtmService ve istek/yanıt DTO'ları. Domain nesneleri doğrudan HTTP sözleşmesi yapılmadı; kasetler ve bakiyeler deterministik sırada döner, listeleme sayfalanır.
+- `Infrastructure/Persistence`: EF model eşlemeleri, unique/FK/CHECK kuralları ve AtmStore. Mevcut ATM mutasyonları transaction içinde parent ATM satırını FOR UPDATE ile kilitler. Stok ve hareket tek SaveChanges/commit ile yazılır.
+- `20261012095350_AddAtmCashModel`: cash.atms/cassettes/balances/movements tabloları, snapshot ve hareket değişikliğini reddeden PostgreSQL trigger. EF tarafında da update/delete koruması var. İlk migration korunarak ikinci migration eklendi.
+- `Api/AtmEndpoints.cs`, `DomainExceptionHandler.cs`, `Program.cs`: create/list/get/configure/load/unload/state endpoint'leri, büyük harfli metin enum'ları, 400/404/409 domain hata eşlemesi ve bozuk JSON için ProblemDetails. Sayısal enum değerleri reddedilir.
+- Unit/integration testleri ve `postman/AtmSetup.postman_collection.json` eklendi. Sürüm metadatası ve altyapı Postman beklentisi 0.3.0 oldu. README, API sözleşmesi, kararlar, gereksinimler ve roadmap güncellendi.
+
+İlk test derlemesinde xUnit2031, Assert.Single öncesindeki Where kullanımını hata saydı. Assert.Single'ın predicate overload'ına geçildi; uyarı bastırılmadı.
+
+Doğrulamalar ve gerçek sonuçlar:
+
+| İşlem / davranış | Sonuç |
+|---|---|
+| `dotnet build FimpleCaseStudy.sln --no-restore` | 0 hata, 0 uyarı |
+| `dotnet test FimpleCaseStudy.sln --no-restore --logger 'console;verbosity=minimal'` | 24 unit + 12 integration başarılı; 0 başarısız, 0 atlanan |
+| Domain testleri | Beş slot, geçerli/geçersiz döviz adedi, kupür/enum, kapasite, batch atomikliği, lifecycle, unload ve dolu kaseti yeniden yapılandırma kuralları doğrulandı |
+| Gerçek PostgreSQL yönetim akışı | İki ATM izolasyonu, state geçişleri, fiziksel bakiye, aktör ve hareket toplamları doğrulandı |
+| Paralel load | Başlangıç 50 iken iki eşzamanlı +30 isteğinden biri 200, diğeri 409; sonuç 80 ve yalnızca başarılı yüklemelerin hareketleri |
+| Append-only | EF silme reddedildi; doğrudan SQL UPDATE, DELETE ve TRUNCATE PostgreSQL 55000 ile engellendi |
+| Zorlanmış hareket INSERT hatası | API 500; SQL ayrıntısı dışarı verilmedi; bakiye 0, durum CONFIGURED, hareket sayısı 0: transaction bütünüyle geri alındı |
+| Hatalı API girdileri | Sayısal/bilinmeyen enum ve bozuk JSON 400; kapasite çatışması 409; eksik ATM 404 ve ProblemDetails doğrulandı |
+| `docker compose up --build -d` | Başarılı; mevcut geliştirme volume'ü korunarak ikinci migration uygulandı |
+| Altyapı Postman collection, `--no-report-events` | 4 istek, 8 assertion, 0 başarısız |
+| ATM kurulum Postman collection, `--no-report-events` | 9 istek, 18 assertion, 0 başarısız; ID response'dan otomatik taşındı |
+
+Postman çalışmaları yereldir; CLI bulut kimlik bilgisi mesajı yazsa da iki çalıştırma exit 0 ile tamamlandı. Akış create -> configure -> load -> in service -> yasak load -> maintenance -> unload -> inspect -> in service şeklindedir. Demo ATM geliştirme DB'sinde bırakıldı. Testcontainers testleri ayrı geçici DB'ler kullandı. Geçici çalışma logları tmp altında Git dışında tutulur.
+
+Kalan kapsam: B2'nin kaset önceliklendirmesi ve B3 optimal seçim v0.4.0'da; quote/confirm ve kart limiti v0.5.0'da. Bu sürümün parent satır kilidi testi B6'nın tamamlandığını göstermez. LOAD/UNLOAD hareketleri hazır; diğer hareket üreticileri ve consistency endpoint henüz yok. v0.3.0 ayrı geliştirme commit'i olarak kaydedilir; release/tag değildir.

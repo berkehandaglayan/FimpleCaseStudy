@@ -4,7 +4,7 @@ ATM Cash Management Backend case study. ASP.NET Core 10, EF Core ve PostgreSQL.
 
 ## Güncel durum
 
-v0.2.0 altyapısı: dört proje katmanı, otomatik migration, Docker Compose, Swagger, ProblemDetails ve gerçek PostgreSQL entegrasyon testleri eklendi. ATM/kaset ve para işlemleri henüz uygulanmadı; bunlar v0.3.0 ve sonraki sürümlerin kapsamıdır.
+v0.3.0: altyapıya ATM oluşturma/listeleme, kaset konfigürasyonu, yaşam döngüsü ve operatör nakit yükleme/boşaltma eklendi. LOAD/UNLOAD hareketleri bakiye ile aynı transaction içinde kaydedilir ve değiştirilemez. Çekim, müşteri yatırması ve mutabakat henüz uygulanmadı. API gövdeleri ve kurallar: [API sözleşmesi](docs/API.md).
 
 ## Çalıştırma
 
@@ -14,7 +14,7 @@ Docker Desktop Linux engine açıkken repo kökünde:
 docker compose up --build
 ```
 
-API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. İlk migration `cash` şemasını oluşturur; henüz iş tabloları yoktur. Veriler Docker named volume içinde saklanır.
+API başlamadan önce PostgreSQL hazır olana kadar beklenir ve EF migration uygulanır. İlk migration `cash` şemasını, ikinci migration ATM/kaset/bakiye/hareket tablolarını ve ledger koruma trigger'ını oluşturur. Veriler Docker named volume içinde saklanır.
 
 - Swagger: http://localhost:8080/swagger
 - OpenAPI: http://localhost:8080/swagger/v1/swagger.json
@@ -45,18 +45,19 @@ Docker engine açıkken:
 ```powershell
 dotnet restore
 dotnet build --no-restore
-dotnet test tests/FimpleCaseStudy.IntegrationTests --no-restore
+dotnet test FimpleCaseStudy.sln --no-restore
 ```
 
-Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. Testler migration/schema, hazır olma, veritabanı kesintisi, 404 ProblemDetails ve OpenAPI sözleşmesini doğrular. Unit test projesi hazırdır; henüz iş kuralı veya B3 testi içermez.
+Testcontainers her test için ayrı PostgreSQL container'ı ve dinamik port oluşturur; mevcut Compose veritabanını kullanmaz. Test sonunda container'lar temizlenir. 24 unit test ve 12 entegrasyon testi geçti. Kapsam: kaset kuralları, lifecycle, karma deposit kapasitesi, atomik yükleme/boşaltma, ATM izolasyonu, paralel yükleme, ledger yazım hatasında rollback, EF/SQL ledger değişmezliği ve altyapı testleri. B3 banknot seçimi testleri sonraki aşamadadır.
 
 Çalışan API üzerinde Postman altyapı kontrolleri:
 
 ```powershell
 postman collection run postman/Infrastructure.postman_collection.json --no-report-events
+postman collection run postman/AtmSetup.postman_collection.json --no-report-events
 ```
 
-Bu collection 4 altyapı isteği içerir; ödevin ATM uçtan uca senaryosu sonraki aşamalarda eklenecek. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
+Altyapı collection'ı 4 istek/8 kontrol, ATM yönetimi collection'ı 9 istek/18 kontrol içerir; hepsi geçti. İkinci collection her çalıştırmada yeni bir demo ATM oluşturur ve hizmette bırakır. Çekim/yatırma/mutabakat uçtan uca senaryosu sonraki aşamalarda eklenecek. API portu değiştiyse `--env-var baseUrl=http://localhost:YENI_PORT` kullan.
 
 ## Migration geliştirme
 
@@ -69,14 +70,14 @@ dotnet ef migrations add MigrationName --project src/FimpleCaseStudy.Infrastruct
 
 ## Mimari ve temel tasarım kararları
 
-- Domain: iş kuralları; şu anda yalnızca proje sınırı hazır.
-- Application: kullanım senaryoları ve bağımlılık kayıtları; test edilebilir saat için `TimeProvider` kayıtlı.
-- Infrastructure: PostgreSQL DbContext, migration, tasarım zamanı factory ve DB sağlık kontrolü.
+- Domain: ATM aggregate, kasetler, kupür bakiyeleri, yaşam döngüsü ve nakit doğrulamaları.
+- Application: AtmService, IAtmStore sınırı, istek/yanıt DTO'ları ve test edilebilir TimeProvider.
+- Infrastructure: EF eşlemeleri/constraint'ler, ATM satır kilidi, transaction, migration, ledger trigger'ı ve sağlık kontrolü.
 - Api: HTTP endpoint'leri, DI composition root, Swagger ve hata yanıtları.
 
-Bilinmeyen endpoint gibi HTTP hataları ProblemDetails ile `code`, `traceId` ve `instance` alanları taşır. `/health` başarısızlığında 503 / `DATABASE_NOT_READY`, `/health/live` ise DB'den bağımsızdır. Beklenmeyen çalışma zamanı hataları exception handler üzerinden işlenir; domain hata kodları henüz eklenmedi.
+Bilinmeyen endpoint gibi HTTP hataları ProblemDetails ile `code`, `traceId` ve `instance` alanları taşır. `/health` başarısızlığında 503 / `DATABASE_NOT_READY`, `/health/live` ise DB'den bağımsızdır. Beklenmeyen çalışma zamanı hataları exception handler üzerinden işlenir; domain doğrulama hataları 400, bulunamayan ATM 404, durum/stok çelişkileri 409 döndürür.
 
-Banknot algoritması, kilitler, idempotency ve ledger tasarımları [DECISIONS](docs/DECISIONS.md) içinde plan olarak kayıtlıdır; uygulanmış özellik değildir. Otomatik migration case study'nin şartıdır; mevcut Compose tasarımı tek API instance'ı içindir.
+ATM mutasyonlarında satır kilidi ve LOAD/UNLOAD ledger temeli uygulanmıştır. Banknot algoritması, quote/card-limit kilit sırası ve idempotency [DECISIONS](docs/DECISIONS.md) içinde hâlâ plan olarak kayıtlıdır. Otomatik migration case study'nin şartıdır; mevcut Compose tasarımı tek API instance'ı içindir.
 
 ## Varsayımlar
 
@@ -84,7 +85,7 @@ Gün sınırı, alternatif rezervasyonları ve mutabakat yorumları [DECISIONS](
 
 ## Tamamlanmamış işler ve bilinen sınırlamalar
 
-Part A ATM işlemleri ve B1-B10 henüz tamamlanmadı. B3'ün sekiz kabul testi, çekim eşzamanlılığı, günlük limit, ledger, mutabakat onayı, outbox ve tam Postman akışı sıradaki aşamalardadır. Swagger bu yerel case study ortamında açıktır; authentication henüz yoktur ve ödevde zorunlu değildir.
+Part A ve B1-B10 bütünü henüz tamamlanmadı. B3'ün sekiz kabul testi, quote/çekim, müşteri yatırması, günlük limit, ledger consistency endpoint'i, mutabakat/onay, outbox ve tam Postman akışı sıradaki aşamalardadır. Paralel load testi B6'nın quote rezervasyon testi yerine geçmez. Swagger bu yerel case study ortamında açıktır; authentication henüz yoktur ve ödevde zorunlu değildir.
 
 ## AI kullanımı
 
@@ -95,5 +96,6 @@ Codex; gereksinim analizi, başlangıç kayıtları, uygulama altyapısı ve tes
 - [İstek geçmişi ve proje bağlamı](docs/PROJECT_CONTEXT.md)
 - [SemVer roadmap](docs/ROADMAP.md)
 - [Kronolojik teknik günlük](docs/WORKLOG.md)
+- [API sözleşmesi ve örnek istekler](docs/API.md)
 - [Teknik kararlar](docs/DECISIONS.md)
 - [Gereksinim ve doğrulama matrisi](docs/REQUIREMENTS.md)

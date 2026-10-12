@@ -4,7 +4,7 @@ Bu kayıt mimari seçimleri teknik review'da gerekçeleriyle anlatmak içindir. 
 
 ## ADR-001 - Tek uygulama, dört sorumluluk alanı
 
-Durum: v0.2.0 katman ve DI altyapısı uygulandı; iş kullanım senaryoları henüz yok.
+Durum: v0.2.0 katman ve DI altyapısı; v0.3.0 ATM yönetimi kullanım senaryoları uygulandı.
 
 ASP.NET Core REST API, EF Core code-first ve PostgreSQL. Domain iş kurallarını ve saf algoritmaları, Application kullanım senaryolarını, Infrastructure veritabanı ve dış teknik bağımlılıkları, Api HTTP sözleşmesini içerir. DI uygulama başlangıcında yapılır. Aynı deployment içinde arka plan işleri çalışır.
 
@@ -14,7 +14,7 @@ Makinede .NET SDK 10.0.400 doğrulandı. global.json minimum 10.0.100 + latestFe
 
 ## ADR-002 - Nakit modeli ve stok boyutları
 
-Durum: Planlandı.
+Durum: v0.3.0 Atm, Cassette, CassetteBalance ve CashMovement uygulandı; diğer modeller planlandı.
 
 Model adayları: Atm, Cassette, CassetteBalance, CashMovement, WithdrawalQuote, QuoteOption, ReservationLine, CardDailyUsage, IdempotencyRecord, Reconciliation, ReconciliationLine, ExchangeRate, OutboxMessage. Bunlar kesin migration/tablo listesi değildir.
 
@@ -48,7 +48,9 @@ Alt seçenek 0 ise müşteriye 0 tutarlı çekim önerilmez. Ödenebilir pozitif
 
 ## ADR-005 - Transaction ve eşzamanlılık
 
-Durum: Planlandı.
+Durum: v0.3.0 ATM yönetiminde transaction ve ATM satır kilidi uygulandı. Kart, quote ve idempotency kapsamı planlandı.
+
+Mevcut AtmStore.UpdateAsync transaction başlatır, ATM satırını SELECT FOR UPDATE ile kilitler, kaset/bakiyeleri yükler, domain işlemini çalıştırır ve bakiye ile hareketleri birlikte kaydeder. Paralel yüklemelerde kapasitenin aşılmadığı gerçek PostgreSQL ile doğrulandı. Bu sonuç B6 quote/confirm eşzamanlılığı tamamlandı anlamına gelmez.
 
 Quote/confirm/cancel/expiry ve nakit değiştiren operasyonlar kısa DB transaction'ları kullanır. Bakiye, rezervasyon, günlük limit, hareket, idempotency sonucu ve gerektiğinde outbox aynı transaction sınırında tutarlı değişir.
 
@@ -78,21 +80,21 @@ Gece yarısını geçen quote'un hangi güne yazılacağı açık karar konusudu
 
 ## ADR-008 - Değiştirilemez hareket defteri
 
-Durum: Planlandı.
+Durum: v0.3.0 LOAD/UNLOAD kayıtları ve append-only koruma uygulandı; diğer hareket üreticileri ve consistency endpoint planlandı.
 
 Her hareket kaset, para birimi, kupür, fiziksel adet değişimi, rezervasyon adet değişimi, işlem tipi, ilişkilendirme kimliği ve zamanı taşır. Örneğin rezervasyonda fiziksel delta 0, rezerve delta +n; serbest bırakmada 0 ve -n. Çekimde fiziksel delta -n ve ayrılmış miktarın release hareketi ayrı izlenir; ikili sayım yapılmaz.
 
-Bakiye satırları hızlı okuma için tutulur; hareketlerin toplamı aynı fiziksel/rezerve bakiyeyi üretmeli. Mevcut hareketler update/delete edilmez; hata düzeltme ters/düzeltici yeni hareketle yapılır. DB düzeyindeki append-only korumanın nasıl uygulanacağı migration aşamasında seçilecek.
+Bakiye satırları hızlı okuma için tutulur; hareketlerin toplamı aynı fiziksel/rezerve bakiyeyi üretmeli. Mevcut hareketler update/delete edilmez; hata düzeltme ters/düzeltici yeni hareketle yapılır. v0.3.0 migration'ında PostgreSQL trigger UPDATE/DELETE/TRUNCATE işlemlerini reddeder; EF SaveChanges koruması da hareket değişikliği/silinmesini engeller. DB yöneticisinin trigger kaldırma yetkisine karşı bir güvenlik garantisi değildir. Hareket INSERT'i bilerek başarısız kılınarak bakiye ve durum değişikliğinin de rollback olduğu doğrulandı.
 
 Consistency endpoint aynı tutarlı okuma görünümünde kayıtlı ve hesaplanmış adetleri karşılaştırır; normal eşzamanlı işlem sahte fark üretmemeli. Ledger altyapısı v0.3.0'da başlar, tüm hareket türleri ve denetimi v0.7.0'da tamamlanır.
 
 ## ADR-009 - Yaşam döngüsü ve bakım
 
-Durum: Planlandı; ek korumalar varsayımdır.
+Durum: v0.3.0 temel yaşam döngüsü ve dolu kaseti yeniden yapılandırma engeli uygulandı. Quote iptali ve bekleyen mutabakat onayı korumaları planlandı.
 
 PDF akışı: UNCONFIGURED -> CONFIGURED -> LOADED -> IN_SERVICE <-> MAINTENANCE. Configure/load/reconcile yalnızca izin verilen kurulum/bakım durumlarında; deposit/withdrawal yalnızca IN_SERVICE.
 
-Varsayımlar: Bakım geçişinde açık quote'lar güvenli şekilde iptal edilir; ilgili kart rezervasyonları ve stok birlikte serbest bırakılır. Kaset para/kupür değişiminden önce fiziksel ve rezerve stok sıfır olmalı; unload hareketiyle nakit çıkarılır. İlk LOADED geçişinin minimum yük koşulu uygulama aşamasında netleştirilecek. Bekleyen mutabakat onayı hizmete dönüşü engeller.
+Varsayımlar: Bakım geçişinde açık quote'lar güvenli şekilde iptal edilir; ilgili kart rezervasyonları ve stok birlikte serbest bırakılır. Kaset para/kupür değişiminden önce fiziksel ve rezerve stok sıfır olmalı; unload hareketiyle nakit çıkarılır. İlk LOADED geçişinin minimum yük koşulu v0.3.0'da ADR-015 ile kesinleştirildi. Bekleyen mutabakat onayı hizmete dönüşü engeller.
 
 ## ADR-010 - Mutabakat ve dört göz onayı
 
@@ -122,9 +124,9 @@ Outbox kaydı stok işlemiyle aynı DB transaction'ında oluşturulur. Hosted se
 
 ## ADR-013 - Test ve teslim kanıtı
 
-Durum: Planlandı.
+Durum: v0.3.0 saf domain testleri, Testcontainers PostgreSQL entegrasyonu ve Postman yönetim akışı uygulandı. B3 ve müşteri işlemleri testleri sonraki sürümlerde.
 
-Saf kurallar ve B3 unit testlerle; kilit/transaction/idempotency gerçek PostgreSQL entegrasyon testleriyle; kullanıcı akışı Postman collection ile doğrulanır. EF InMemory concurrency kanıtı olarak kullanılmaz. Testcontainer veya Compose test DB seçimi ortam hazır olduğunda yapılacak.
+Saf kurallar ve B3 unit testlerle; kilit/transaction/idempotency gerçek PostgreSQL entegrasyon testleriyle; kullanıcı akışı Postman collection ile doğrulanır. EF InMemory concurrency kanıtı olarak kullanılmaz. Otomatik entegrasyon testleri için test başına ayrı Testcontainers PostgreSQL, yerel API/Postman için Compose seçildi.
 
 Her testte hangi davranışın doğrulandığı ve sonuç `WORKLOG.md` içine yazılır. Testler, uygulanan özellikler ve README aynı gerçek durumu anlatır.
 
@@ -142,3 +144,17 @@ Testcontainers her test için ayrı PostgreSQL container'ı kullanır. İlk tasa
 Docker Compose db healthcheck koşulunu bekler. PostgreSQL kalıcı volume kullanır; testler bu volume'e bağlanmaz. API non-root container kullanıcısıyla çalışır ve portlar localhost'a yayınlanır. Yerel geliştirme varsayılan parolası örnektir; gerçek ortam secret yönetimi henüz kapsamda değildir.
 
 Referanslar: [ASP.NET Core ProblemDetails](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/error-handling?view=aspnetcore-10.0), [Npgsql 10](https://www.npgsql.org/efcore/release-notes/10.0.html).
+
+## ADR-015 - İlk kurulum ve yönetim API sözleşmesi
+
+Durum: v0.3.0 uygulandı ve test edildi. Aşağıdaki slot ve ilk yükleme yorumları PDF'ye ek tasarım varsayımlarıdır.
+
+- ATM oluşturulurken 1-4 recycling, 5 deposit olmak üzere beş sabit slot yaratılır. Configure dört recycling slotunu tek istekte tanımlar; aynı para/kupür birden fazla kasette bulunabilir. Döviz kaseti sayısı bir veya ikidir.
+- İlk yükleme CONFIGURED durumunda tek atomik batch olarak yapılır ve en az bir recycling banknotu içermelidir. Başarı LOADED durumuna geçirir; sonraki yükleme için hizmete alıp bakıma geçmek gerekir. Durum endpoint'i kurulum adımlarını atlayamaz. Bakımdan hizmete dönüş için ek minimum nakit koşulu konmadı.
+- Manuel load/unload CONFIGURED veya MAINTENANCE durumunda yapılır. Bunlar müşteri deposit/withdrawal işlemleri değildir. Bakımda konfigürasyonu değişen kaset boş ve rezervasyonsuz olmalıdır; değişmeyen dolu kaset korunabilir. Eski para/kupürün sıfır bakiyeli satırı geçmişin okunabilirliği için tutulur.
+- Bütün batch doğrulanmadan aggregate değiştirilmez. Aynı slot/para/kupür tekrarları reddedilir. Karma deposit kapasitesi tüm bakiye satırlarının fiziksel toplamıdır. Bu toplam ve döviz kaseti adedi domain kurallarıyla, eşzamanlı işlemlerde ATM kilidi altında korunur; satırlar arası toplam için DB CHECK varmış gibi bir iddia yoktur.
+- DB CHECK kuralları geçerli para/kupür, slot/tür, durum ve 0 <= Reserved <= OnHand <= 100 sınırlarını korur. Hareketin composite foreign key'i başka ATM'ye ait kasetle eşleştirilmesini engeller. Aynı batch hareketleri OperationId paylaşır.
+- HTTP enum değerleri büyük harfli metindir; sayısal enum kabul edilmez. Hatalar ProblemDetails ve code/traceId içerir: doğrulama 400, bulunamayan ATM 404, iş kuralı çatışması 409. Beklenmeyen 500 hataları SQL ayrıntısını döndürmez.
+- X-User manuel nakit hareketinin aktörünü belirler; yoksa system kullanılır. Bu alan authentication sağlamaz. İşlem zamanları TimeProvider üzerinden UTC alınır. Listeleme limit/offset ile sınırlıdır.
+
+İstek/yanıt örnekleri ve endpoint listesi [API sözleşmesinde](API.md) bulunur. Rezervasyon alanları modelde hazır olsa da henüz rezervasyon üreten kullanım senaryosu yoktur.

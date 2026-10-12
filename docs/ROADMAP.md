@@ -16,7 +16,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 |---|---|---|---|
 | v0.1.0 | Başlangıç ve izlenebilirlik | Ortam incelemesi, Git başlangıcı, roadmap, bağlam ve teknik günlük | Tamamlandı |
 | v0.2.0 | Çalışan uygulama altyapısı | Solution, katmanlar, PostgreSQL, EF migration, Compose, Swagger, ProblemDetails, health | Tamamlandı |
-| v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2, yükleme/boşaltma ve hareket kaydı temeli | Planlandı |
+| v0.3.0 | ATM ve kaset yaşam döngüsü | Part A temel kuralları, B1, B2 yaşam döngüsü, yükleme/boşaltma ve hareket kaydı temeli | Tamamlandı |
 | v0.4.0 | Optimal banknot seçimi | B3, tam/alt/üst tutar ve 8 kabul testi | Planlandı |
 | v0.5.0 | Güvenli para çekme | B4, B5, B6: quote, confirm, cancel, expiry, limit ve idempotency | Planlandı |
 | v0.6.0 | Para yatırma | B7: yönlendirme, taşma, tanınmayan/iade edilen banknotlar | Planlandı |
@@ -35,7 +35,7 @@ Sürümler süre tahmini değildir. Her aşama kendi tamamlanma ölçütleriyle 
 - [x] Uzak repo erişimini ve mevcut geçmişini doğrula (eklenti yetkisi var, branch listesi boş).
 - [x] Yerel Git kimlik doğrulamasını tamamla; başlangıç commit'ini güvenli şekilde gönder (fa5b457, origin/main ile SHA eşleşmesi doğrulandı).
 
-GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. v0.2.0 altyapısı da tamamlandı; sıradaki geliştirme aşaması v0.3.0. Henüz release/tag oluşturulmadı.
+GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç commit'i GitHub'a gönderildi. v0.3.0 ATM yönetimi de tamamlandı; sıradaki geliştirme aşaması v0.4.0. Henüz release/tag oluşturulmadı.
 
 ## v0.2.0 - Çalışan uygulama altyapısı
 
@@ -51,14 +51,14 @@ GitHub CLI girişi, Docker engine ve Postman CLI doğrulandı. Başlangıç comm
 
 ## v0.3.0 - ATM ve kaset yaşam döngüsü
 
-- [ ] ATM oluşturma ve çoklu ATM izolasyonu.
-- [ ] Tam 5 kaset; 1 deposit-only, 4 recycling; kaset başına toplam 100 banknot.
-- [ ] TRY/USD/EUR ve 20/50/100/500 doğrulaması; recycling için 1-2 döviz kaseti.
-- [ ] Konfigürasyon, yükleme ve boşaltma işlemleri; başlangıç nakdinin kaydı.
-- [ ] Yaşam döngüsü geçişleri ve işlem/durum matrisi.
-- [ ] Karışık deposit bakiyeleri için para birimi + kupür kırılımı.
-- [ ] Bakiye ve değiştirilemez hareket kaydının aynı transaction içinde yazılması.
-- [ ] Geçersiz konfigürasyon, kapasite ve durum testleri.
+- [x] ATM oluşturma ve çoklu ATM izolasyonu.
+- [x] Tam 5 kaset; 1 deposit-only, 4 recycling; kaset başına toplam 100 banknot.
+- [x] TRY/USD/EUR ve 20/50/100/500 doğrulaması; recycling için 1-2 döviz kaseti.
+- [x] Konfigürasyon, yükleme ve boşaltma işlemleri; başlangıç nakdinin kaydı.
+- [x] Yaşam döngüsü geçişleri ve işlem/durum matrisi.
+- [x] Karışık deposit bakiyeleri için para birimi + kupür kırılımı.
+- [x] Bakiye ve değiştirilemez hareket kaydının aynı transaction içinde yazılması.
+- [x] Geçersiz konfigürasyon, kapasite ve durum testleri.
 
 ## v0.4.0 - Optimal banknot seçimi
 

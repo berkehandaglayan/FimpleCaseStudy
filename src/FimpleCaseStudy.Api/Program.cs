@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using FimpleCaseStudy.Api;
 using FimpleCaseStudy.Application;
 using FimpleCaseStudy.Infrastructure;
 using FimpleCaseStudy.Infrastructure.Persistence;
@@ -12,6 +15,9 @@ var connectionString = builder.Configuration.GetConnectionString("Database")
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false)));
+builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
 {
     context.ProblemDetails.Instance = context.HttpContext.Request.Path;
@@ -44,7 +50,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.MapGet("/api/info", () => Results.Ok(new
 {
     name = "ATM Cash Management API",
-    version = "0.2.0"
+    version = "0.3.0"
 })).WithName("GetApiInfo").WithTags("System");
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -71,6 +77,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     }
 });
 
+app.MapAtmEndpoints();
 app.Run();
 
 public partial class Program;

@@ -1,0 +1,352 @@
+{
+  "info": {
+    "name": "FimpleCaseStudy - ATM setup",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "v0.3.0 yönetim akışı. Her çalıştırma yeni ATM oluşturur. Çekim/yatırma/mutabakat sonraki aşamalarda eklenecek."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "atmId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create ATM",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman setup ATM\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"UNCONFIGURED\"); pm.collectionVariables.set(\"atmId\", pm.response.json().id); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Configure recycling cassettes",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/configuration",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cassettes\": [\n    {\n      \"slot\": 1,\n      \"currency\": \"TRY\",\n      \"denomination\": 100\n    },\n    {\n      \"slot\": 2,\n      \"currency\": \"TRY\",\n      \"denomination\": 50\n    },\n    {\n      \"slot\": 3,\n      \"currency\": \"TRY\",\n      \"denomination\": 20\n    },\n    {\n      \"slot\": 4,\n      \"currency\": \"USD\",\n      \"denomination\": 100\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"CONFIGURED\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Load initial cash",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/load",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lines\": [\n    {\n      \"slot\": 1,\n      \"currency\": \"TRY\",\n      \"denomination\": 100,\n      \"count\": 20\n    },\n    {\n      \"slot\": 2,\n      \"currency\": \"TRY\",\n      \"denomination\": 50,\n      \"count\": 10\n    },\n    {\n      \"slot\": 3,\n      \"currency\": \"TRY\",\n      \"denomination\": 20,\n      \"count\": 10\n    },\n    {\n      \"slot\": 4,\n      \"currency\": \"USD\",\n      \"denomination\": 100,\n      \"count\": 5\n    },\n    {\n      \"slot\": 5,\n      \"currency\": \"EUR\",\n      \"denomination\": 50,\n      \"count\": 2\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"LOADED\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Put in service",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"IN_SERVICE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"IN_SERVICE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject loading in service",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/load",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lines\": [\n    {\n      \"slot\": 1,\n      \"currency\": \"TRY\",\n      \"denomination\": 100,\n      \"count\": 1\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().code).to.eql(\"INVALID_ATM_STATE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Switch to maintenance",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"MAINTENANCE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"MAINTENANCE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unload cash",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/unload",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lines\": [\n    {\n      \"slot\": 1,\n      \"currency\": \"TRY\",\n      \"denomination\": 100,\n      \"count\": 5\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().cassettes.find(c => c.slot === 1).onHand).to.eql(15); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inspect ATM",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().cassettes).to.have.lengthOf(5); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Return to service",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-User",
+            "value": "postman-operator"
+          }
+        ],
+        "url": "{{baseUrl}}/api/atms/{{atmId}}/state",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"state\": \"IN_SERVICE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Business outcome\", () => { pm.expect(pm.response.json().state).to.eql(\"IN_SERVICE\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
